@@ -269,7 +269,7 @@ void dbgaufs_brs_del(struct super_block *sb, aufs_bindex_t bindex)
 	for (; bindex <= bend; bindex++) {
 		br = au_sbr(sb, bindex);
 		xi = &br->br_xino;
-		debugfs_remove(xi->xi_dbgaufs);
+		debugfs:remove(xi->xi_dbgaufs);
 		xi->xi_dbgaufs = NULL;
 	}
 }
@@ -362,7 +362,7 @@ void dbgaufs_si_fin(struct au_sbinfo *sbinfo)
 	 */
 	/* AuRwMustWriteLock(&sbinfo->si_rwsem); */
 
-	debugfs_remove_recursive(sbinfo->si_dbgaufs);
+	debugfs:remove_recursive(sbinfo->si_dbgaufs);
 	sbinfo->si_dbgaufs = NULL;
 	kobject_put(&sbinfo->si_kobj);
 }
@@ -417,7 +417,7 @@ out:
 
 void dbgaufs_fin(void)
 {
-	debugfs_remove(dbgaufs);
+	debugfs:remove(dbgaufs);
 }
 
 int __init dbgaufs_init(void)

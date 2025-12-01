@@ -1,20 +1,20 @@
 SUMMARY = "shotmanager"
-HOMEPAGE = "https://github.com/OpenSolo/shotmanager"
+HOMEPAGE = "https://github.com/Decryptortuning/shotmanager"
 
 LICENSE = "GPLv3"
 LIC_FILES_CHKSUM = "file://LICENSE-APACHE;md5=3b83ef96387f14655fc854ddc3c6bd57"
 
 SRCREV = "${AUTOREV}"
-SRC_URI = "git://github.com/OpenSolo/shotmanager"
+SRC_URI = "https://github.com/Decryptortuning/shotmanager.git;branch=PORT"
 
 PV = "${SRCPV}"
 S = "${WORKDIR}/git"
 
-RDEPENDS_${PN} += "dronekit dronekit-solo"
+RDEPENDS:${PN} += "dronekit dronekit-solo"
 
-FILES_${PN} += "/"
-FILES_${PN} += "${bindir}/"
-FILES_${PN} += "${sysconfdir}/"
+FILES:${PN} += "/"
+FILES:${PN} += "${bindir}/"
+FILES:${PN} += "${sysconfdir}/"
 
 do_compile () {
     echo "# auto-generated `date`" > shotManager_version.py

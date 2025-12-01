@@ -356,7 +356,7 @@ static void do_put_plink_rcu(struct rcu_head *rcu)
  * create a new pseudo-link for @h_dentry on @bindex.
  * the linked inode is held in aufs @inode.
  */
-void au_plink_append(struct inode *inode, aufs_bindex_t bindex,
+void au_plink:append(struct inode *inode, aufs_bindex_t bindex,
 		     struct dentry *h_dentry)
 {
 	struct super_block *sb;

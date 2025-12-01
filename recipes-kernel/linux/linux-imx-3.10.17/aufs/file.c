@@ -361,7 +361,7 @@ static int au_ready_to_write_wh(struct file *file, loff_t len,
 	if (!err
 	    && inode->i_nlink > 1
 	    && au_opt_test(au_mntflags(cpg.dentry->d_sb), PLINK))
-		au_plink_append(inode, bcpup, au_h_dptr(cpg.dentry, bcpup));
+		au_plink:append(inode, bcpup, au_h_dptr(cpg.dentry, bcpup));
 
 	return err;
 }
@@ -781,7 +781,7 @@ static int aufs_is_partially_uptodate(struct page *page,
 				      read_descriptor_t *desc,
 				      unsigned long from)
 { AuUnsupport(); return 0; }
-static int aufs_error_remove_page(struct address_space *mapping,
+static int aufs_error:remove_page(struct address_space *mapping,
 				  struct page *page)
 { AuUnsupport(); return 0; }
 static int aufs_swap_activate(struct swap_info_struct *sis, struct file *file,
@@ -808,7 +808,7 @@ const struct address_space_operations aufs_aop = {
 	.migratepage		= aufs_migratepage,
 	.launder_page		= aufs_launder_page,
 	.is_partially_uptodate	= aufs_is_partially_uptodate,
-	.error_remove_page	= aufs_error_remove_page,
+	.error:remove_page	= aufs_error:remove_page,
 	.swap_activate		= aufs_swap_activate,
 	.swap_deactivate	= aufs_swap_deactivate
 #endif /* CONFIG_AUFS_DEBUG */

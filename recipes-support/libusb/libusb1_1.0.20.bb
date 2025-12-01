@@ -23,13 +23,13 @@ inherit autotools pkgconfig
 # dependecy with udev package, which depends on libusb
 EXTRA_OECONF = "--libdir=${base_libdir} --disable-udev"
 
-do_install_append() {
+do_install:append() {
 	install -d ${D}${libdir}
 	if [ ! ${D}${libdir} -ef ${D}${base_libdir} ]; then
 		mv ${D}${base_libdir}/pkgconfig ${D}${libdir}
 	fi
 }
 
-FILES_${PN} += "${base_libdir}/*.so.*"
+FILES:${PN} += "${base_libdir}/*.so.*"
 
-FILES_${PN}-dev += "${base_libdir}/*.so ${base_libdir}/*.la"
+FILES:${PN}-dev += "${base_libdir}/*.so ${base_libdir}/*.la"

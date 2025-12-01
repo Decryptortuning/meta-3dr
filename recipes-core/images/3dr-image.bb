@@ -13,7 +13,7 @@ EXTRA_IMAGE_FEATURES += " \
 IMAGE_INSTALL += " \
     packagegroup-fsl-gstreamer \
     crda \
-    python-pip \
+    python3-pip \
     openssh \
     hostap-daemon \
     iw \
@@ -27,4 +27,3 @@ IMAGE_INSTALL += " \
 "
 
 export IMAGE_BASENAME = "3dr-image"
-

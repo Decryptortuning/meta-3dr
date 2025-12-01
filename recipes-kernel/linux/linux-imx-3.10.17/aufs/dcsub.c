@@ -68,7 +68,7 @@ void au_dpages_free(struct au_dcsub_pages *dpages)
 	kfree(dpages->dpages);
 }
 
-static int au_dpages_append(struct au_dcsub_pages *dpages,
+static int au_dpages:append(struct au_dcsub_pages *dpages,
 			    struct dentry *dentry, gfp_t gfp)
 {
 	int err, sz;
@@ -125,7 +125,7 @@ resume:
 	    && au_di(this_parent)
 	    && this_parent->d_count
 	    && (!test || test(this_parent, arg))) {
-		err = au_dpages_append(dpages, this_parent, GFP_ATOMIC);
+		err = au_dpages:append(dpages, this_parent, GFP_ATOMIC);
 		if (unlikely(err))
 			goto out;
 	}
@@ -150,7 +150,7 @@ resume:
 			if (dentry->d_sb == sb
 			    && au_di(dentry)
 			    && (!test || test(dentry, arg)))
-				err = au_dpages_append(dpages, dentry,
+				err = au_dpages:append(dpages, dentry,
 						       GFP_ATOMIC);
 		}
 		spin_unlock(&dentry->d_lock);
@@ -190,7 +190,7 @@ int au_dcsub_pages_rev(struct au_dcsub_pages *dpages, struct dentry *dentry,
 	if (do_include
 	    && dentry->d_count
 	    && (!test || test(dentry, arg)))
-		err = au_dpages_append(dpages, dentry, GFP_ATOMIC);
+		err = au_dpages:append(dpages, dentry, GFP_ATOMIC);
 	spin_unlock(&dentry->d_lock);
 	if (unlikely(err))
 		goto out;
@@ -204,7 +204,7 @@ int au_dcsub_pages_rev(struct au_dcsub_pages *dpages, struct dentry *dentry,
 		spin_lock(&dentry->d_lock);
 		if (dentry->d_count
 		    && (!test || test(dentry, arg)))
-			err = au_dpages_append(dpages, dentry, GFP_ATOMIC);
+			err = au_dpages:append(dpages, dentry, GFP_ATOMIC);
 		spin_unlock(&dentry->d_lock);
 		if (unlikely(err))
 			break;

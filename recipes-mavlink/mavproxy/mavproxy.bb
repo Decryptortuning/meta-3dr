@@ -7,13 +7,13 @@ LIC_FILES_CHKSUM = "file://COPYING.txt;md5=3c34afdc3adf82d2448f12715a255122"
 PV = "1.4.20-solo"
 
 SRCREV = "sololink_v1.1.17"
-SRC_URI = "git://github.com/OpenSolo/MAVProxy/"
+SRC_URI = "https://github.com/Decryptortuning/MAVProxy.git;branch=PORT"
 
 S = "${WORKDIR}/git"
 
-inherit setuptools
+inherit setuptools3
 
-RDEPENDS_${PN} += "python-pyserial \
+RDEPENDS:${PN} += "${PYTHON_PN}-pyserial \
                    pymavlink \
-                   python-pyparsing \
+                   ${PYTHON_PN}-pyparsing \
                   "

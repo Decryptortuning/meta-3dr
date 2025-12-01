@@ -71,7 +71,7 @@ int sysaufs_si_init(struct au_sbinfo *sbinfo)
 void sysaufs_fin(void)
 {
 	dbgaufs_fin();
-	sysfs_remove_group(&sysaufs_kset->kobj, sysaufs_attr_group);
+	sysfs:remove_group(&sysaufs_kset->kobj, sysaufs_attr_group);
 	kset_unregister(sysaufs_kset);
 }
 

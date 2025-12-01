@@ -270,7 +270,7 @@ AuStubVoid(au_plink_list, struct super_block *sb)
 #endif
 int au_plink_test(struct inode *inode);
 struct dentry *au_plink_lkup(struct inode *inode, aufs_bindex_t bindex);
-void au_plink_append(struct inode *inode, aufs_bindex_t bindex,
+void au_plink:append(struct inode *inode, aufs_bindex_t bindex,
 		     struct dentry *h_dentry);
 void au_plink_put(struct super_block *sb, int verbose);
 void au_plink_clean(struct super_block *sb, int verbose);
@@ -298,7 +298,7 @@ ssize_t aufs_getxattr(struct dentry *dentry, const char *name, void *value,
 		      size_t size);
 int aufs_setxattr(struct dentry *dentry, const char *name, const void *value,
 		  size_t size, int flags);
-int aufs_removexattr(struct dentry *dentry, const char *name);
+int aufs:removexattr(struct dentry *dentry, const char *name);
 
 /* void au_xattr_init(struct super_block *sb); */
 #else

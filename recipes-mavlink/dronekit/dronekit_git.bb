@@ -1,18 +1,18 @@
 SUMMARY = "dronekit"
-HOMEPAGE = "https://github.com/dronekit/dronekit-python"
+HOMEPAGE = "https://github.com/Decryptortuning/dronekit-python"
 
 LICENSE = "GPLv3"
 LIC_FILES_CHKSUM = "file://LICENSE;md5=d2794c0df5b907fdace235a619d80314"
 
 SRCREV = "v2.4.0"
-SRC_URI = "git://github.com/dronekit/dronekit-python"
+SRC_URI = "https://github.com/Decryptortuning/dronekit-python.git;branch=PORT"
 
 PV = "2.4.0"
 S = "${WORKDIR}/git"
 
-inherit setuptools
+inherit setuptools3
 
-RDEPENDS_${PN} += "python-pyserial \
+RDEPENDS:${PN} += "${PYTHON_PN}-pyserial \
                    pymavlink \
-                   python-pyparsing \
+                   ${PYTHON_PN}-pyparsing \
                   "

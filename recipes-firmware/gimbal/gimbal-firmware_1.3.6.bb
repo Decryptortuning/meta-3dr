@@ -2,12 +2,12 @@ SUMMARY = "Axon firmware binary"
 
 LICENSE = "CLOSED"
 
-FILESEXTRAPATHS_prepend := "${THISDIR}/files/:"
+FILESEXTRAPATHS:prepend := "${THISDIR}/files/:"
 
 SRC_URI += "file://gimbal_firmware_1.3.6.ax"
 
 firmwaredir = "/firmware"
-FILES_${PN} += "${firmwaredir}/"
+FILES:${PN} += "${firmwaredir}/"
 
 REPO_NAME = "solo-gimbal"
 REPO_TAG = "master"

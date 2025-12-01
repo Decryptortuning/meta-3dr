@@ -33,7 +33,7 @@ do_install() {
 }
 
 
-RDEPENDS_${PN} = "udev"
-FILES_${PN} += "${libdir}crda/regulatory.bin \
+RDEPENDS:${PN} = "udev"
+FILES:${PN} += "${libdir}crda/regulatory.bin \
                 ${base_libdir}/udev/rules.d/85-regulatory.rules \
 "

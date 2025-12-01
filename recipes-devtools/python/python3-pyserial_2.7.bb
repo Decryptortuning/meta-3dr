@@ -8,14 +8,13 @@ PR = "ml4"
 SRC_URI = "${SOURCEFORGE_MIRROR}/${SRCNAME}/${SRCNAME}-${PV}.tar.gz"
 S = "${WORKDIR}/${SRCNAME}-${PV}"
 
-inherit setuptools
+inherit setuptools3
 
 # FIXME might stop packaging serialwin32 and serialjava files
 
-RDEPENDS_${PN} = "\
-    python-fcntl \
-    python-io \
-    python-stringold \
+RDEPENDS:${PN} = "\
+    ${PYTHON_PN}-fcntl \
+    ${PYTHON_PN}-io \
 "
 # avoid "error: option --single-version-externally-managed not recognized"
 DISTUTILS_INSTALL_ARGS = "--root=${D} \

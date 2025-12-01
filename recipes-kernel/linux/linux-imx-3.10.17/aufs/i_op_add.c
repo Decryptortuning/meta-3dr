@@ -484,7 +484,7 @@ static int au_cpup_or_link(struct dentry *src_dentry, struct dentry *dentry,
 	}
 
 	if (!err && !plink)
-		au_plink_append(inode, a->bdst, a->h_path.dentry);
+		au_plink:append(inode, a->bdst, a->h_path.dentry);
 
 out:
 	AuTraceErr(err);
@@ -714,7 +714,7 @@ int aufs_mkdir(struct inode *dir, struct dentry *dentry, umode_t mode)
 	if (diropq) {
 		AuLabel(revert opq);
 		mutex_lock_nested(h_mtx, AuLsc_I_CHILD);
-		rerr = au_diropq_remove(dentry, bindex);
+		rerr = au_diropq:remove(dentry, bindex);
 		mutex_unlock(h_mtx);
 		if (rerr) {
 			AuIOErr("%.*s reverting diropq failed(%d, %d)\n",

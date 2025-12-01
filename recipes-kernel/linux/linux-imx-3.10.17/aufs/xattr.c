@@ -349,7 +349,7 @@ static ssize_t au_srxattr(struct dentry *dentry, struct au_srxattr *arg)
 				     arg->u.set.size, arg->u.set.flags);
 		break;
 	case AU_XATTR_REMOVE:
-		err = vfsub_removexattr(h_path.dentry, arg->u.remove.name);
+		err = vfsub:removexattr(h_path.dentry, arg->u.remove.name);
 		break;
 	}
 	if (!err)
@@ -385,7 +385,7 @@ int aufs_setxattr(struct dentry *dentry, const char *name, const void *value,
 	return au_srxattr(dentry, &arg);
 }
 
-int aufs_removexattr(struct dentry *dentry, const char *name)
+int aufs:removexattr(struct dentry *dentry, const char *name)
 {
 	struct au_srxattr arg = {
 		.type = AU_XATTR_REMOVE,

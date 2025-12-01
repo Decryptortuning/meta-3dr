@@ -2,14 +2,14 @@ SUMMARY = "wtmp file rotation"
 
 LICENSE = "CLOSED"
 
-FILESEXTRAPATHS := "${THISDIR}/${PN}:"
+FILESEXTRAPATHS:prepend := "${THISDIR}/${PN}:"
 
 SRC_URI = " \
     file://wtmp_rotate \
     file://logrotate-wtmp.conf \
     "
 
-FILES_${PN} = "/"
+FILES:${PN} = "/"
 
 do_install() {
     install -d ${D}${sysconfdir}/init.d

@@ -238,7 +238,7 @@ static void au_shwh_init_wh(struct au_vdir_wh *wh, ino_t ino,
 
 /* ---------------------------------------------------------------------- */
 
-int au_nhash_append_wh(struct au_nhash *whlist, char *name, int nlen, ino_t ino,
+int au_nhash:append_wh(struct au_nhash *whlist, char *name, int nlen, ino_t ino,
 		       unsigned int d_type, aufs_bindex_t bindex,
 		       unsigned char shwh)
 {
@@ -487,7 +487,7 @@ static int fillvdir(void *__arg, const char *__name, int nlen,
 		if (!arg->err) {
 			if (nlen <= AUFS_MAX_NAMELEN + AUFS_WH_PFX_LEN)
 				d_type = DT_UNKNOWN;
-			arg->err = au_nhash_append_wh
+			arg->err = au_nhash:append_wh
 				(&arg->whlist, name, nlen, ino, d_type,
 				 arg->bindex, shwh);
 		}

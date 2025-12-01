@@ -453,7 +453,7 @@ static int test_empty_cb(void *__arg, const char *__name, int namelen,
 	name += AUFS_WH_PFX_LEN;
 	namelen -= AUFS_WH_PFX_LEN;
 	if (!au_nhash_test_known_wh(arg->whlist, name, namelen))
-		arg->err = au_nhash_append_wh
+		arg->err = au_nhash:append_wh
 			(arg->whlist, name, namelen, ino, d_type, arg->bindex,
 			 au_ftest_testempty(arg->flags, SHWH));
 

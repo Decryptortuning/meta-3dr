@@ -1,8 +1,8 @@
 
-SRC_URI = "git://github.com/OpenSolo/imx6-uboot/"
+SRC_URI = "https://github.com/Decryptortuning/imx6-uboot.git;branch=PORT"
 SRCREV = "solo_v1.0.0"
 
 # save UBOOT_CONFIG as separate names
-do_deploy_append() {
+do_deploy:append() {
     install ${S}/${UBOOT_BINARY} ${DEPLOYDIR}/${UBOOT_IMAGE}_${UBOOT_CONFIG}
 }

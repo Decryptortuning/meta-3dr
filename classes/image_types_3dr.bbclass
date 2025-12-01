@@ -14,7 +14,7 @@ UBOOT_SUFFIX_SDCARD ?= "${UBOOT_SUFFIX}"
 # IMX Bootlets Linux bootstream
 IMAGE_DEPENDS_linux.sb = "elftosb-native imx-bootlets virtual/kernel"
 IMAGE_LINK_NAME_linux.sb = ""
-IMAGE_CMD_linux.sb () {
+IMAGE_CMD:linux.sb () {
 	kernel_bin="`readlink ${KERNEL_IMAGETYPE}-${MACHINE}.bin`"
 	kernel_dtb="`readlink ${KERNEL_IMAGETYPE}-${MACHINE}.dtb || true`"
 	linux_bd_file=imx-bootlets-linux.bd-${MACHINE}
@@ -38,7 +38,7 @@ IMAGE_CMD_linux.sb () {
 
 # IMX Bootlets barebox bootstream
 IMAGE_DEPENDS_barebox.mxsboot-sdcard = "elftosb-native u-boot-mxsboot-native imx-bootlets barebox"
-IMAGE_CMD_barebox.mxsboot-sdcard () {
+IMAGE_CMD:barebox.mxsboot-sdcard () {
 	barebox_bd_file=imx-bootlets-barebox_ivt.bd-${MACHINE}
 
 	# Ensure the files are generated
@@ -50,7 +50,7 @@ IMAGE_CMD_barebox.mxsboot-sdcard () {
 # U-Boot mxsboot generation to SD-Card
 UBOOT_SUFFIX_SDCARD_mxs ?= "mxsboot-sdcard"
 IMAGE_DEPENDS_uboot.mxsboot-sdcard = "u-boot-mxsboot-native u-boot"
-IMAGE_CMD_uboot.mxsboot-sdcard = "mxsboot sd ${DEPLOY_DIR_IMAGE}/u-boot-${MACHINE}.${UBOOT_SUFFIX} \
+IMAGE_CMD:uboot.mxsboot-sdcard = "mxsboot sd ${DEPLOY_DIR_IMAGE}/u-boot-${MACHINE}.${UBOOT_SUFFIX} \
                                              ${DEPLOY_DIR_IMAGE}/${IMAGE_NAME}.rootfs.uboot.mxsboot-sdcard"
 
 # Boot partition volume id
@@ -65,8 +65,11 @@ BAREBOX_ENV_SPACE ?= "512"
 # Set alignment to 4MB [in KiB]
 IMAGE_ROOTFS_ALIGNMENT = "4096"
 
-IMAGE_DEPENDS_sdcard = "parted-native dosfstools-native mtools-native \
-                        virtual/kernel ${IMAGE_BOOTLOADER}"
+do_image_sdcard[depends] += "parted-native:do_populate_sysroot \
+                             dosfstools-native:do_populate_sysroot \
+                             mtools-native:do_populate_sysroot \
+                             virtual/kernel:do_deploy \
+                             ${IMAGE_BOOTLOADER}"
 
 SDCARD = "${DEPLOY_DIR_IMAGE}/${IMAGE_NAME}.rootfs.sdcard"
 
@@ -191,7 +194,7 @@ generate_imx_sdcard () {
            ${DEPLOY_DIR_IMAGE}/${IMAGE_BASENAME}.tar.gz.md5
 }
 
-IMAGE_CMD_sdcard () {
+IMAGE_CMD:sdcard () {
 	if [ -z "${SDCARD_ROOTFS}" ]; then
 		bberror "SDCARD_ROOTFS is undefined. To use sdcard image from Freescale's BSP it needs to be defined."
 		exit 1

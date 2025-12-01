@@ -4,11 +4,11 @@ LICENSE = "GPLv3"
 LIC_FILES_CHKSUM = "file://COPYING3;md5=4fe869ee987a340198fb0d54c55c47f1"
 
 SRCREV = "${AUTOREV}"
-SRC_URI = "git://github.com/OpenSolo/stm32loader/"
+SRC_URI = "https://github.com/Decryptortuning/stm32loader.git;branch=PORT"
 
 S = "${WORKDIR}/git"
 
-FILES_${PN} += "${bindir}/"
+FILES:${PN} += "${bindir}/"
 
 do_install () {
 	install -d ${D}${bindir}

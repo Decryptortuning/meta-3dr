@@ -3,7 +3,7 @@ HOMEPAGE = "http://wireless.kernel.org/en/users/Download"
 SECTION = "kernel/modules"
 LICENSE = "GPLv2"
 LIC_FILES_CHKSUM = "file://COPYING;md5=d7810fab7487fb0aad327b76f1be7cd7"
-RDEPENDS_${PN} = "wireless-tools"
+RDEPENDS:${PN} = "wireless-tools"
 INC_PR = "r1"
 
 # depends on config options which are not enabled in qemu* MACHINEs by default
@@ -19,7 +19,7 @@ inherit module
 
 EXTRA_OEMAKE = "KLIB_BUILD=${STAGING_KERNEL_DIR} KLIB=${D}"
 
-do_configure_prepend() {
+do_configure:prepend() {
     cp ${WORKDIR}/defconfig ${S}/.config
 }
 

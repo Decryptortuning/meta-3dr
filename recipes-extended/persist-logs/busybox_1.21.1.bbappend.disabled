@@ -1,4 +1,4 @@
-FILESEXTRAPATHS_prepend := "${THISDIR}/${PN}:"
+FILESEXTRAPATHS:prepend := "${THISDIR}/${PN}:"
 
 SRC_URI += " \
     file://syslog-patch \
@@ -6,11 +6,11 @@ SRC_URI += " \
     file://logrotate-syslog.conf \
     "
 
-do_install_prepend() {
+do_install:prepend() {
     patch -p 1 ${WORKDIR}/syslog < ${WORKDIR}/syslog-patch
 }
 
-do_install_append() {
+do_install:append() {
     install -m 0755 ${WORKDIR}/syslog-startup.conf.busybox ${D}${sysconfdir}
     install -m 0644 ${WORKDIR}/logrotate-syslog.conf ${D}${sysconfdir}
 }

@@ -333,7 +333,7 @@ void sysaufs_brs_del(struct super_block *sb, aufs_bindex_t bindex)
 		br = au_sbr(sb, bindex);
 		br_sysfs = br->br_sysfs;
 		for (i = 0; i < ARRAY_SIZE(br->br_sysfs); i++) {
-			sysfs_remove_file(kobj, &br_sysfs->attr);
+			sysfs:remove_file(kobj, &br_sysfs->attr);
 			br_sysfs++;
 		}
 	}

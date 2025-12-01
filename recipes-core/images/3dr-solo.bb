@@ -9,6 +9,11 @@ BUILD_DATE = "Build Date: $(date "+%Y%m%d%H%M%S")"
 
 do_rootfs[depends] += "virtual/kernel:do_bundle_initramfs"
 
+do_image_sdcard[depends] += "parted-native:do_populate_sysroot \
+                             dosfstools-native:do_populate_sysroot \
+                             mtools-native:do_populate_sysroot \
+                             virtual/kernel:do_deploy"
+
 IMAGE_FEATURES += " \
     debug-tweaks \
     package-management \
@@ -28,14 +33,13 @@ IMAGE_INSTALL += " \
     gst-plugins-good-rtp \
     gst-plugins-bad-mpegtsmux \
     libudev \
-    python-enum34 \
-    python-subprocess \
-    python-datetime \
-    python-json \
-    python-pip \
-    python-numpy \
-    python-posix-ipc \
-    python-monotonic \
+    python3-subprocess \
+    python3-datetime \
+    python3-json \
+    python3-pip \
+    python3-numpy \
+    python3-posix-ipc \
+    python3-monotonic \
     openssh \
     iptables \
     iw \

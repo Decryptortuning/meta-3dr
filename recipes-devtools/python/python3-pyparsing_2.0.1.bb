@@ -11,7 +11,7 @@ SRC_URI[sha256sum] = "0007cd3f008eba4a203f1f6b4b133ddc352552c8808b694c88c23db564
 
 S = "${WORKDIR}/${SRCNAME}-${PV}"
 
-inherit setuptools
+inherit setuptools3
 
 # avoid "error: option --single-version-externally-managed not recognized"
 DISTUTILS_INSTALL_ARGS = "--root=${D} \

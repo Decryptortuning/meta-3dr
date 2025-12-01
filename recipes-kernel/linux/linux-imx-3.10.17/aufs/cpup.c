@@ -767,7 +767,7 @@ static int au_cpup_single(struct au_cp_generic *cpg, struct dentry *dst_parent)
 	if (!isdir
 	    && h_src->d_inode->i_nlink > 1
 	    && plink)
-		au_plink_append(inode, cpg->bdst, h_dst);
+		au_plink:append(inode, cpg->bdst, h_dst);
 
 	if (au_ftest_cpup(cpg->flags, RENAME)) {
 		a->h_path.dentry = h_dst;

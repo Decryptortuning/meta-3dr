@@ -1,4 +1,4 @@
-FILESEXTRAPATHS_prepend := "${THISDIR}/${PN}:"
+FILESEXTRAPATHS:prepend := "${THISDIR}/${PN}:"
 
 SRC_URI += " \
     file://bootlogd \
@@ -6,11 +6,11 @@ SRC_URI += " \
     file://rcS-default-patch \
     "
 
-do_install_prepend() {
+do_install:prepend() {
     patch -p 1 ${WORKDIR}/rcS-default < ${WORKDIR}/rcS-default-patch
 }
 
-do_install_append() {
+do_install:append() {
     install -d ${D}${sysconfdir}/init.d
     install -m 0755 ${WORKDIR}/bootlogd ${D}${sysconfdir}/init.d/
     install -m 0644 ${WORKDIR}/logrotate-boot.conf ${D}${sysconfdir}

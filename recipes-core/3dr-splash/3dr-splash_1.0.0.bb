@@ -3,7 +3,7 @@ SUMMARY = "3DR Logo"
 LICENSE = "CLOSED"
 SRC_URI = "file://3dr.fb.gz"
 
-FILES_${PN} = "/"
+FILES:${PN} = "/"
 
 do_install () {
 	install -d ${D}/

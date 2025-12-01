@@ -11,6 +11,6 @@ SRC_URI[sha256sum] = "865506c22462236b3a2e87a7d9587633e18470e7a93a79b594791de2d3
 
 S = "${WORKDIR}/${SRCNAME}-${PV}"
 
-inherit setuptools
+inherit setuptools3
 
-DEPENDS += " python-pip "
+DEPENDS += " ${PYTHON_PN}-pip "

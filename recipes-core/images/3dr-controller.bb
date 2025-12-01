@@ -3,6 +3,11 @@ include recipes-core/images/core-image-base.bb
 # created from image_types_fsl; creates additional logging partition
 inherit image_types_3dr
 
+do_image_sdcard[depends] += "parted-native:do_populate_sysroot \
+                             dosfstools-native:do_populate_sysroot \
+                             mtools-native:do_populate_sysroot \
+                             virtual/kernel:do_deploy"
+
 PV = "3.0.0"
 VER_NAME = "Open Solo 3.0.0"
 BUILD_DATE = "Build Date: $(date "+%Y%m%d%H%M%S")"
@@ -28,14 +33,13 @@ IMAGE_INSTALL += " \
     gst-plugins-good-rtp \
     gst-plugins-bad-mpegtsdemux \
     libudev \
-    python-enum34 \
-    python-subprocess \
-    python-datetime \
-    python-json \
-    python-pip \
-    python-numpy \
-    python-posix-ipc \
-    python-monotonic \
+    python3-subprocess \
+    python3-datetime \
+    python3-json \
+    python3-pip \
+    python3-numpy \
+    python3-posix-ipc \
+    python3-monotonic \
     openssh \
     iptables \
     iw \

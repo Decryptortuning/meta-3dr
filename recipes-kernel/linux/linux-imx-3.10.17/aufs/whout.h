@@ -76,7 +76,7 @@ static inline struct dentry *au_diropq_create(struct dentry *dentry,
 	return au_diropq_sio(dentry, bindex, AuDiropq_CREATE);
 }
 
-static inline int au_diropq_remove(struct dentry *dentry, aufs_bindex_t bindex)
+static inline int au_diropq:remove(struct dentry *dentry, aufs_bindex_t bindex)
 {
 	return PTR_ERR(au_diropq_sio(dentry, bindex, !AuDiropq_CREATE));
 }

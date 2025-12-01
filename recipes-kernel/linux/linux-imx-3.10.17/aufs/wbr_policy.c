@@ -171,7 +171,7 @@ static int au_cpdown_dir(struct dentry *dentry, aufs_bindex_t bdst,
 out_opq:
 	if (au_ftest_cpdown(*flags, DIROPQ)) {
 		mutex_lock_nested(&h_inode->i_mutex, AuLsc_I_CHILD);
-		rerr = au_diropq_remove(dentry, bdst);
+		rerr = au_diropq:remove(dentry, bdst);
 		mutex_unlock(&h_inode->i_mutex);
 		if (unlikely(rerr)) {
 			AuIOErr("failed removing diropq for %.*s b%d (%d)\n",

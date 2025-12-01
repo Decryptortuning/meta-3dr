@@ -100,7 +100,7 @@ void au_nhash_wh_free(struct au_nhash *whlist);
 int au_nhash_test_longer_wh(struct au_nhash *whlist, aufs_bindex_t btgt,
 			    int limit);
 int au_nhash_test_known_wh(struct au_nhash *whlist, char *name, int nlen);
-int au_nhash_append_wh(struct au_nhash *whlist, char *name, int nlen, ino_t ino,
+int au_nhash:append_wh(struct au_nhash *whlist, char *name, int nlen, ino_t ino,
 		       unsigned int d_type, aufs_bindex_t bindex,
 		       unsigned char shwh);
 void au_vdir_free(struct au_vdir *vdir);

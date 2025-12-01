@@ -314,12 +314,12 @@ static inline int vfsub_setxattr(struct dentry *dentry, const char *name,
 	return err;
 }
 
-static inline int vfsub_removexattr(struct dentry *dentry, const char *name)
+static inline int vfsub:removexattr(struct dentry *dentry, const char *name)
 {
 	int err;
 
 	lockdep_off();
-	err = vfs_removexattr(dentry, name);
+	err = vfs:removexattr(dentry, name);
 	lockdep_on();
 
 	return err;

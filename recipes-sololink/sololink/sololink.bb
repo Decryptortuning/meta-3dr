@@ -4,7 +4,7 @@ LICENSE = "GPLv3"
 LIC_FILES_CHKSUM = "file://LICENSE-APACHE;md5=3b83ef96387f14655fc854ddc3c6bd57"
 
 SRCREV = "${AUTOREV}"
-SRC_URI = "git://github.com/OpenSolo/SoloLink"
+SRC_URI = "https://github.com/Decryptortuning/sololink.git;branch=PORT"
 
 PV = "${SRCPV}"
 S = "${WORKDIR}/git"
@@ -14,24 +14,24 @@ INHIBIT_PACKAGE_DEBUG_SPLIT = "1"
 DEPENDS += "libnl"
 DEPENDS += "gstreamer"
 
-RDEPENDS_${PN} += "dronekit"
-RDEPENDS_${PN} += "imx-vpu libfslvpuwrap gst-fsl-plugin"
+RDEPENDS:${PN} += "dronekit"
+RDEPENDS:${PN} += "imx-vpu libfslvpuwrap gst-fsl-plugin"
 
 # These need to match the environment variables in Sololink/config/sololink
 # All should come from the machine configuration meta-3dr/conf/machine/*
 soloconfdir = "${SOLOLINK_CONFIG_DIR}"
 
-FILES_${PN} += "${bindir}/"
-FILES_${PN} += "${libdir}/"
-FILES_${PN} += "${sysconfdir}/"
-FILES_${PN} += "/"
+FILES:${PN} += "${bindir}/"
+FILES:${PN} += "${libdir}/"
+FILES:${PN} += "${sysconfdir}/"
+FILES:${PN} += "/"
 
 # This is for the builds in flightcode. Building with the --sysroot flag
 # causes the preprocessor to find the correct include files if they are on
 # the default include path (relative to sysroot/usr/include), but using
 # -I to add additional include paths does not work; the full path with
 # sysroot has to be used with -I.
-do_compile_prepend () {
+do_compile:prepend () {
 	export OECORE_TARGET_SYSROOT="${STAGING_DIR_TARGET}"
 }
 

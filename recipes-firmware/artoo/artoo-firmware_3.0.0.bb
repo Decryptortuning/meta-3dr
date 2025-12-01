@@ -2,7 +2,7 @@ SUMMARY = "Artoo firmware binary"
 
 LICENSE = "CLOSED"
 
-FILESEXTRAPATHS_prepend := "${THISDIR}/files/:"
+FILESEXTRAPATHS:prepend := "${THISDIR}/files/:"
 
 # stick-cfg-evt-*.cfg are for use with sololink_config
 SRC_URI += "file://stick-cfg-evt-mode1.cfg \
@@ -11,8 +11,8 @@ SRC_URI += "file://stick-cfg-evt-mode1.cfg \
             file://artoo.bin"
 
 firmwaredir = "/firmware"
-FILES_${PN} += "${firmwaredir}/"
-FILES_${PN} += "${firmwaredir}/cfg"
+FILES:${PN} += "${firmwaredir}/"
+FILES:${PN} += "${firmwaredir}/cfg"
 
 REPO_NAME = "artoo"
 REPO_TAG = "master"

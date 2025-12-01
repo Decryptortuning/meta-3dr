@@ -39,7 +39,7 @@ do_install() {
     install -m 755 ${WORKDIR}/init ${D}${sysconfdir}/init.d/hostapd
 }
 
-CONFFILES_${PN} += "${sysconfdir}/hostapd.conf"
+CONFFILES:${PN} += "${sysconfdir}/hostapd.conf"
 
 SRC_URI[md5sum] = "04578f3f2c3eb1bec1adf30473813912"
 SRC_URI[sha256sum] = "6fe0eb6bd1c9cbd24952ece8586b6f7bd14ab358edfda99794e79b9b9dbd657f"

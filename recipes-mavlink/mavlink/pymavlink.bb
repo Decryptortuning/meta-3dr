@@ -5,12 +5,12 @@ LICENSE = "LGPLv3"
 LIC_FILES_CHKSUM = "file://README.txt;md5=2fc3900b33c4131645987a81bfe6a55f"
 
 SRCREV = "${AUTOREV}"
-SRC_URI = "git://github.com/OpenSolo/mavlink-solo/"
+SRC_URI = "https://github.com/Decryptortuning/mavlink-solo.git;branch=PORT"
 
 PV = "${SRCPV}"
 S = "${WORKDIR}/git/pymavlink"
 
-inherit setuptools
+inherit setuptools3
 
 # avoid "error: option --single-version-externally-managed not recognized"
 DISTUTILS_INSTALL_ARGS = "--root=${D} \
