@@ -12,6 +12,9 @@ PV = "3.0.0"
 VER_NAME = "Open Solo 3.0.0"
 BUILD_DATE = "Build Date: $(date "+%Y%m%d%H%M%S")"
 
+# Alias target name (avoid a second image recipe that would collide in deploy/).
+PROVIDES += "solo_controller"
+
 do_rootfs[depends] += "virtual/kernel:do_bundle_initramfs"
 
 IMAGE_FEATURES += " \

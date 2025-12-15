@@ -172,8 +172,14 @@ mount_and_boot() {
     #mount the read-write partition
     mount /dev/mmcblk0p3 /mnt/rw_rootfs
 
-    #Mount the aufs union partition
-    mount -t aufs -o br=/mnt/rw_rootfs:/mnt/ro_rootfs none $ROOT_MOUNT
+    #Mount the overlayfs union partition (replacing legacy AUFS)
+    modprobe overlay 2>/dev/null || true
+    mkdir -p /mnt/rw_rootfs/upper
+    rm -rf /mnt/rw_rootfs/work
+    mkdir -p /mnt/rw_rootfs/work
+    mount -t overlay overlay \
+        -o lowerdir=/mnt/ro_rootfs,upperdir=/mnt/rw_rootfs/upper,workdir=/mnt/rw_rootfs/work \
+        $ROOT_MOUNT
 
     #Move all those mount points
     mkdir -p $ROOT_MOUNT/mnt/rootfs.ro $ROOT_MOUNT/mnt/rootfs.rw $ROOT_MOUNT/mnt/boot

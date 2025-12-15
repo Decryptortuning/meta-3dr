@@ -7,6 +7,9 @@ PV = "3.0.0"
 VER_NAME = "Open Solo 3.0.0"
 BUILD_DATE = "Build Date: $(date "+%Y%m%d%H%M%S")"
 
+# Alias target name (avoid a second image recipe that would collide in deploy/).
+PROVIDES += "solo_drone"
+
 do_rootfs[depends] += "virtual/kernel:do_bundle_initramfs"
 
 do_image_sdcard[depends] += "parted-native:do_populate_sysroot \
