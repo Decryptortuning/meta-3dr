@@ -134,7 +134,11 @@ generate_imx_sdcard () {
 	                  | awk '/ 1 / { print substr($4, 1, length($4 -1)) / 1024 }')
 	rm -f ${WORKDIR}/boot.img
 	mkfs.vfat -n "${GOLDEN_VOLUME_ID}" -S 512 -C ${WORKDIR}/boot.img $GOLDEN_BLOCKS
-	mcopy -i ${WORKDIR}/boot.img -s ${DEPLOY_DIR_IMAGE}/${KERNEL_IMAGETYPE}-${MACHINE}.bin ::/${KERNEL_IMAGETYPE}
+	KERNEL_BIN="${DEPLOY_DIR_IMAGE}/${KERNEL_IMAGETYPE}-initramfs-${MACHINE}.bin"
+	if [ ! -e "${KERNEL_BIN}" ]; then
+		KERNEL_BIN="${DEPLOY_DIR_IMAGE}/${KERNEL_IMAGETYPE}-${MACHINE}.bin"
+	fi
+	mcopy -i ${WORKDIR}/boot.img -s ${KERNEL_BIN} ::/${KERNEL_IMAGETYPE}
 	
 	# Copy boot scripts
 	for item in ${BOOT_SCRIPTS}; do
@@ -175,7 +179,7 @@ generate_imx_sdcard () {
 
     # Create the update tarball
     cp ${DEPLOY_DIR_IMAGE}/${DTS_BASE_NAME}.dtb ${WORKDIR}/${DTS_BASE_NAME}.dtb
-    cp ${DEPLOY_DIR_IMAGE}/${KERNEL_IMAGETYPE}-${MACHINE}.bin ${WORKDIR}/${KERNEL_IMAGETYPE}
+    cp ${KERNEL_BIN} ${WORKDIR}/${KERNEL_IMAGETYPE}
     cp ${DEPLOY_DIR_IMAGE}/${SDCARD_ROOTFS} ${WORKDIR}/${IMAGE_BASENAME}-${MACHINE}.squashfs
     cp ${DEPLOY_DIR_IMAGE}/u-boot-${MACHINE}.${UBOOT_SUFFIX_SDCARD} ${WORKDIR}/u-boot.imx
 
@@ -204,7 +208,11 @@ IMAGE_CMD:sdcard () {
 	ROOTFS_BYTES=$(stat -Lc%s "${DEPLOY_DIR_IMAGE}/${SDCARD_ROOTFS}")
 	ROOTFS_KIB=$(expr ${ROOTFS_BYTES} + 1023)
 	ROOTFS_KIB=$(expr ${ROOTFS_KIB} / 1024)
-	KERNEL_BYTES=$(stat -Lc%s "${DEPLOY_DIR_IMAGE}/${KERNEL_IMAGETYPE}-${MACHINE}.bin")
+	KERNEL_BIN="${DEPLOY_DIR_IMAGE}/${KERNEL_IMAGETYPE}-initramfs-${MACHINE}.bin"
+	if [ ! -e "${KERNEL_BIN}" ]; then
+		KERNEL_BIN="${DEPLOY_DIR_IMAGE}/${KERNEL_IMAGETYPE}-${MACHINE}.bin"
+	fi
+	KERNEL_BYTES=$(stat -Lc%s "${KERNEL_BIN}")
 	KERNEL_KIB=$(expr ${KERNEL_BYTES} + 1023)
 	KERNEL_KIB=$(expr ${KERNEL_KIB} / 1024)
 	UBOOT_BYTES=$(stat -Lc%s "${DEPLOY_DIR_IMAGE}/u-boot-${MACHINE}.${UBOOT_SUFFIX_SDCARD}")
