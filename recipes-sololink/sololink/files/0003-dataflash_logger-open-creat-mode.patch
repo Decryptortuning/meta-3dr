@@ -1,0 +1,11 @@
+flightcode: pass mode to open() when using O_CREAT
+
+glibc fortify errors out when open() is called with O_CREAT but without a
+mode argument.
+
+--- a/flightcode/dataflash_logger/dataflash_logger.cpp
++++ b/flightcode/dataflash_logger/dataflash_logger.cpp
+@@ -250,1 +250,1 @@
+-    if ((fd = open(lastlog_buf, O_WRONLY | O_TRUNC | O_CREAT)) == -1) {
++    if ((fd = open(lastlog_buf, O_WRONLY | O_TRUNC | O_CREAT, 0644)) == -1) {
+

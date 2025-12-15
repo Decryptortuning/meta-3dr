@@ -69,11 +69,18 @@ do_image_sdcard[depends] += "parted-native:do_populate_sysroot \
                              dosfstools-native:do_populate_sysroot \
                              mtools-native:do_populate_sysroot \
                              virtual/kernel:do_deploy \
-                             ${IMAGE_BOOTLOADER}"
+                             ${@'%s:do_deploy' % d.getVar('IMAGE_BOOTLOADER') if d.getVar('IMAGE_BOOTLOADER') else ''}"
 
-SDCARD = "${DEPLOY_DIR_IMAGE}/${IMAGE_NAME}.rootfs.sdcard"
+SDCARD = "${DEPLOY_DIR_IMAGE}/${IMAGE_LINK_NAME}.sdcard"
 
-SDCARD_GENERATION_COMMAND_mx6 = "generate_imx_sdcard"
+# The 3DR sdcard generator always copies the squashfs rootfs onto the boot
+# partition; keep a non-empty default to satisfy IMAGE_CMD:sdcard checks.
+SDCARD_ROOTFS ?= "${IMAGE_LINK_NAME}.squashfs"
+
+# meta-freescale/meta-imx (Scarthgap) uses extended machine override tokens
+# like "mx6-generic-bsp" instead of the older "mx6".
+SDCARD_GENERATION_COMMAND:mx6-generic-bsp = "generate_imx_sdcard"
+SDCARD_GENERATION_COMMAND:mx6dl-generic-bsp = "generate_imx_sdcard"
 
 #
 # Create an image that can by written onto a SD card using dd for use
@@ -125,8 +132,9 @@ generate_imx_sdcard () {
 	# Create golden partition image
 	GOLDEN_BLOCKS=$(LC_ALL=C parted -s ${SDCARD} unit b print \
 	                  | awk '/ 1 / { print substr($4, 1, length($4 -1)) / 1024 }')
+	rm -f ${WORKDIR}/boot.img
 	mkfs.vfat -n "${GOLDEN_VOLUME_ID}" -S 512 -C ${WORKDIR}/boot.img $GOLDEN_BLOCKS
-	mcopy -i ${WORKDIR}/boot.img -s ${DEPLOY_DIR_IMAGE}/${KERNEL_IMAGETYPE}-initramfs-${MACHINE}.bin ::/${KERNEL_IMAGETYPE}
+	mcopy -i ${WORKDIR}/boot.img -s ${DEPLOY_DIR_IMAGE}/${KERNEL_IMAGETYPE}-${MACHINE}.bin ::/${KERNEL_IMAGETYPE}
 	
 	# Copy boot scripts
 	for item in ${BOOT_SCRIPTS}; do
@@ -140,21 +148,17 @@ generate_imx_sdcard () {
 	if test -n "${KERNEL_DEVICETREE}"; then
 		for DTS_FILE in ${KERNEL_DEVICETREE}; do
 			DTS_BASE_NAME=`basename ${DTS_FILE} | awk -F "." '{print $1}'`
-			if [ -e "${KERNEL_IMAGETYPE}-${DTS_BASE_NAME}.dtb" ]; then
-				kernel_bin="`readlink ${KERNEL_IMAGETYPE}-${MACHINE}.bin`"
-				kernel_bin_for_dtb="`readlink ${KERNEL_IMAGETYPE}-${DTS_BASE_NAME}.dtb | sed "s,$DTS_BASE_NAME,${MACHINE},g;s,\.dtb$,.bin,g"`"
-				if [ $kernel_bin = $kernel_bin_for_dtb ]; then
-					mcopy -i ${WORKDIR}/boot.img -s ${DEPLOY_DIR_IMAGE}/${KERNEL_IMAGETYPE}-${DTS_BASE_NAME}.dtb ::/${DTS_BASE_NAME}.dtb
-				fi
+			if [ -e "${DEPLOY_DIR_IMAGE}/${DTS_BASE_NAME}.dtb" ]; then
+				mcopy -i ${WORKDIR}/boot.img -s ${DEPLOY_DIR_IMAGE}/${DTS_BASE_NAME}.dtb ::/${DTS_BASE_NAME}.dtb
 			fi
 		done
 	fi
 
     #Copy the squashfs 
-    if [ -e ${DEPLOY_DIR_IMAGE}/${IMAGE_NAME}.rootfs.squashfs ]; then
-        mcopy -i ${WORKDIR}/boot.img -s ${DEPLOY_DIR_IMAGE}/${IMAGE_NAME}.rootfs.squashfs ::/${IMAGE_BASENAME}-${MACHINE}.squashfs
+    if [ -e ${DEPLOY_DIR_IMAGE}/${SDCARD_ROOTFS} ]; then
+        mcopy -i ${WORKDIR}/boot.img -s ${DEPLOY_DIR_IMAGE}/${SDCARD_ROOTFS} ::/${IMAGE_BASENAME}-${MACHINE}.squashfs
     else
-        bberror "Error, no squashfs file ${IMAGE_NAME}.rootfs.squashfs found"
+        bberror "Error, no squashfs file ${SDCARD_ROOTFS} found"
         exit 1
     fi
     
@@ -170,13 +174,13 @@ generate_imx_sdcard () {
 	dd if=${WORKDIR}/boot.img of=${SDCARD} conv=notrunc seek=1 bs=$(expr ${IMAGE_ROOTFS_ALIGNMENT} \* 1024) && sync && sync
 
     # Create the update tarball
-    cp ${DEPLOY_DIR_IMAGE}/${KERNEL_IMAGETYPE}-${DTS_BASE_NAME}.dtb ${WORKDIR}/${DTS_BASE_NAME}.dtb
-    cp ${DEPLOY_DIR_IMAGE}/${KERNEL_IMAGETYPE}-initramfs-${MACHINE}.bin ${WORKDIR}/${KERNEL_IMAGETYPE}
-    cp ${DEPLOY_DIR_IMAGE}/${IMAGE_NAME}.rootfs.squashfs ${WORKDIR}/${IMAGE_BASENAME}-${MACHINE}.squashfs
+    cp ${DEPLOY_DIR_IMAGE}/${DTS_BASE_NAME}.dtb ${WORKDIR}/${DTS_BASE_NAME}.dtb
+    cp ${DEPLOY_DIR_IMAGE}/${KERNEL_IMAGETYPE}-${MACHINE}.bin ${WORKDIR}/${KERNEL_IMAGETYPE}
+    cp ${DEPLOY_DIR_IMAGE}/${SDCARD_ROOTFS} ${WORKDIR}/${IMAGE_BASENAME}-${MACHINE}.squashfs
     cp ${DEPLOY_DIR_IMAGE}/u-boot-${MACHINE}.${UBOOT_SUFFIX_SDCARD} ${WORKDIR}/u-boot.imx
 
     cd ${WORKDIR}
-    tar -pczf ${DEPLOY_DIR_IMAGE}/${IMAGE_BASENAME}-${DATETIME}.tar.gz \
+    tar -pczf ${DEPLOY_DIR_IMAGE}/${IMAGE_BASENAME}.tar.gz \
               ${DTS_BASE_NAME}.dtb \
               ${KERNEL_IMAGETYPE} \
               ${IMAGE_BASENAME}-${MACHINE}.squashfs \
@@ -184,14 +188,8 @@ generate_imx_sdcard () {
 
     #tarball md5sum
     cd ${DEPLOY_DIR_IMAGE}
-    md5sum ${IMAGE_BASENAME}-${DATETIME}.tar.gz > ${IMAGE_BASENAME}-${DATETIME}.tar.gz.md5
+    md5sum ${IMAGE_BASENAME}.tar.gz > ${IMAGE_BASENAME}.tar.gz.md5
     cd ${WORKDIR}
-
-    #symlinks
-    ln -sf ${DEPLOY_DIR_IMAGE}/${IMAGE_BASENAME}-${DATETIME}.tar.gz \
-           ${DEPLOY_DIR_IMAGE}/${IMAGE_BASENAME}.tar.gz
-    ln -sf ${DEPLOY_DIR_IMAGE}/${IMAGE_BASENAME}-${DATETIME}.tar.gz.md5 \
-           ${DEPLOY_DIR_IMAGE}/${IMAGE_BASENAME}.tar.gz.md5
 }
 
 IMAGE_CMD:sdcard () {
@@ -200,8 +198,37 @@ IMAGE_CMD:sdcard () {
 		exit 1
 	fi
 
+	# Ensure the boot partition is large enough for kernel+dtb+rootfs (+overhead).
+	BOOT_SPACE_KIB="${BOOT_SPACE}"
+	OVERHEAD_KIB=16384
+	ROOTFS_BYTES=$(stat -Lc%s "${DEPLOY_DIR_IMAGE}/${SDCARD_ROOTFS}")
+	ROOTFS_KIB=$(expr ${ROOTFS_BYTES} + 1023)
+	ROOTFS_KIB=$(expr ${ROOTFS_KIB} / 1024)
+	KERNEL_BYTES=$(stat -Lc%s "${DEPLOY_DIR_IMAGE}/${KERNEL_IMAGETYPE}-${MACHINE}.bin")
+	KERNEL_KIB=$(expr ${KERNEL_BYTES} + 1023)
+	KERNEL_KIB=$(expr ${KERNEL_KIB} / 1024)
+	UBOOT_BYTES=$(stat -Lc%s "${DEPLOY_DIR_IMAGE}/u-boot-${MACHINE}.${UBOOT_SUFFIX_SDCARD}")
+	UBOOT_KIB=$(expr ${UBOOT_BYTES} + 1023)
+	UBOOT_KIB=$(expr ${UBOOT_KIB} / 1024)
+	DTB_KIB=0
+	if test -n "${KERNEL_DEVICETREE}"; then
+		for DTS_FILE in ${KERNEL_DEVICETREE}; do
+			DTS_BASE_NAME=`basename ${DTS_FILE} | awk -F "." '{print $1}'`
+			if [ -e "${DEPLOY_DIR_IMAGE}/${DTS_BASE_NAME}.dtb" ]; then
+				DTB_BYTES=$(stat -Lc%s "${DEPLOY_DIR_IMAGE}/${DTS_BASE_NAME}.dtb")
+				THIS_DTB_KIB=$(expr ${DTB_BYTES} + 1023)
+				THIS_DTB_KIB=$(expr ${THIS_DTB_KIB} / 1024)
+				DTB_KIB=$(expr ${DTB_KIB} + ${THIS_DTB_KIB})
+			fi
+		done
+	fi
+	NEEDED_BOOT_KIB=$(expr ${ROOTFS_KIB} + ${KERNEL_KIB} + ${UBOOT_KIB} + ${DTB_KIB} + ${OVERHEAD_KIB})
+	if [ "${NEEDED_BOOT_KIB}" -gt "${BOOT_SPACE_KIB}" ]; then
+		BOOT_SPACE_KIB="${NEEDED_BOOT_KIB}"
+	fi
+
 	# Align boot partition and calculate total SD card image size
-	GOLDEN_SPACE_ALIGNED=$(expr ${BOOT_SPACE} + ${IMAGE_ROOTFS_ALIGNMENT} - 1)
+	GOLDEN_SPACE_ALIGNED=$(expr ${BOOT_SPACE_KIB} + ${IMAGE_ROOTFS_ALIGNMENT} - 1)
 	GOLDEN_SPACE_ALIGNED=$(expr ${GOLDEN_SPACE_ALIGNED} - ${GOLDEN_SPACE_ALIGNED} % ${IMAGE_ROOTFS_ALIGNMENT})
 	SDCARD_SIZE=$(expr ${IMAGE_ROOTFS_ALIGNMENT} + ${GOLDEN_SPACE_ALIGNED} + 1)
 

@@ -5,6 +5,9 @@ LIC_FILES_CHKSUM = "file://pyparsing.py;beginline=3;endline=23;md5=06277c41c36d1
 
 SRCNAME = "pyparsing"
 
+# Prefer newer providers (e.g. poky/meta) when available.
+DEFAULT_PREFERENCE = "-1"
+
 SRC_URI = "https://pypi.python.org/packages/source/p/pyparsing/pyparsing-${PV}.tar.gz"
 SRC_URI[md5sum] = "37adec94104b98591507218bc82e7c31"
 SRC_URI[sha256sum] = "0007cd3f008eba4a203f1f6b4b133ddc352552c8808b694c88c23db56416e4e4"

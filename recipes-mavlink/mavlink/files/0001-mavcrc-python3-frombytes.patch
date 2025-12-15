@@ -1,0 +1,26 @@
+From 9b2c9a2f872e2a4a2a3d6688a0aefcfaf3a2d4f2 Mon Sep 17 00:00:00 2001
+From: OpenAI Codex <codex@openai.com>
+Date: Mon, 15 Dec 2025 00:00:00 +0000
+Subject: [PATCH] mavcrc: fix Python 3.12 array API
+
+Python 3.12 removed array.array.fromstring(). Use frombytes() and encode
+text input.
+---
+ generator/mavcrc.py | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/generator/mavcrc.py b/generator/mavcrc.py
+index 3c5d5f7..dfb4b8a 100644
+--- a/generator/mavcrc.py
++++ b/generator/mavcrc.py
+@@ -24,7 +24,9 @@ class x25crc(object):
+     def accumulate_str(self, buf):
+         '''add in some more bytes'''
+         accum = self.crc
+         import array
+         bytes = array.array('B')
+-        bytes.fromstring(buf)
++        if isinstance(buf, str):
++            buf = buf.encode('utf-8')
++        bytes.frombytes(buf)
+         self.accumulate(bytes)

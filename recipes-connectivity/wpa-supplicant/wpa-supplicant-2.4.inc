@@ -14,7 +14,7 @@ inherit systemd
 SYSTEMD_SERVICE:${PN} = "wpa_supplicant.service wpa_supplicant-nl80211@.service wpa_supplicant-wired@.service"
 SYSTEMD_AUTO_ENABLE = "disable"
 
-SRC_URI = "http://hostap.epitest.fi/releases/wpa_supplicant-${PV}.tar.gz \
+SRC_URI = "https://w1.fi/releases/wpa_supplicant-${PV}.tar.gz \
            file://defconfig \
            file://wpa-supplicant.sh \
            file://wpa_supplicant.conf \

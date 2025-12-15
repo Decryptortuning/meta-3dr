@@ -2,6 +2,10 @@ DESCRIPTION = "Serial Port Support for Python"
 SECTION = "devel/python"
 LICENSE = "PSF"
 LIC_FILES_CHKSUM = "file://LICENSE.txt;md5=c557c64905dac5b725980b9505bf8d7b"
+
+# Scarthgap uses Python 3.12; pyserial 2.7 no longer builds. Prefer newer
+# providers (e.g. meta-python) when available.
+DEFAULT_PREFERENCE = "-1"
 SRCNAME = "pyserial"
 PR = "ml4"
 

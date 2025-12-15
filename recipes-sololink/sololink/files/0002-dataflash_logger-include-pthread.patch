@@ -1,0 +1,12 @@
+flightcode: include pthread.h for pthread_* APIs
+
+Newer toolchains don't implicitly declare pthread APIs; include the proper
+header so the C++ build succeeds.
+
+--- a/flightcode/dataflash_logger/dataflash_logger.cpp
++++ b/flightcode/dataflash_logger/dataflash_logger.cpp
+@@ -7,1 +7,2 @@
+-#include <unistd.h>
++#include <unistd.h>
++#include <pthread.h>
+

@@ -1,0 +1,18 @@
+flightcode: fix syslog format-security warnings
+
+Modern toolchains build with -Wformat-security (often via -Werror), which
+rejects passing non-literal strings as the syslog() format parameter.
+
+Use an explicit "%s" format when logging dynamic messages.
+
+--- a/flightcode/telem_ctrl/telem_ctrl.cpp
++++ b/flightcode/telem_ctrl/telem_ctrl.cpp
+@@ -794,1 +794,1 @@
+-            syslog(LOG_INFO, msg);
++            syslog(LOG_INFO, "%s", msg);
+
+--- a/flightcode/util/syslog_test.c
++++ b/flightcode/util/syslog_test.c
+@@ -122,1 +122,1 @@
+-        syslog(LOG_INFO, msg);
++        syslog(LOG_INFO, "%s", msg);

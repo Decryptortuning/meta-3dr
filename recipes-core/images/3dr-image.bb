@@ -15,7 +15,7 @@ IMAGE_INSTALL += " \
     crda \
     python3-pip \
     openssh \
-    hostap-daemon \
+    hostapd \
     iw \
     wireless-tools \
     opkg \

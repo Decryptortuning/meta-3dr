@@ -1,0 +1,16 @@
+flightcode/video/hdmi: include LDFLAGS when linking hdmiout
+
+Yocto expects binaries to be linked with the configured LDFLAGS (e.g. to
+ensure GNU_HASH is present).  The original build linked hdmiout without
+LDFLAGS, triggering a do_package_qa [ldflags] error.
+
+--- a/flightcode/video/hdmi/Makefile
++++ b/flightcode/video/hdmi/Makefile
+@@ -22,7 +22,7 @@ all: out
+ 
+ out:
+-	$(CC) $(CFLAGS) hdmiout.c -o hdmiout
++	$(CC) $(CFLAGS) $(LDFLAGS) hdmiout.c -o hdmiout
+ 
+ clean:
+ 	$(RM) *.o *~ hdmiout

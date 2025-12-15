@@ -4,11 +4,14 @@ HOMEPAGE = "https://github.com/Decryptortuning/shotmanager"
 LICENSE = "GPLv3"
 LIC_FILES_CHKSUM = "file://LICENSE-APACHE;md5=3b83ef96387f14655fc854ddc3c6bd57"
 
-SRCREV = "${AUTOREV}"
-SRC_URI = "https://github.com/Decryptortuning/shotmanager.git;branch=PORT"
+SRCREV = "26776b76d20e3eb7c8d86f8a4b68af3645509602"
+SRC_URI = "git://github.com/Decryptortuning/shotmanager.git;protocol=https;branch=PORT"
 
-PV = "${SRCPV}"
+PV = "3.0.0"
+PKGV = "${PV}+git${GITPKGV}"
 S = "${WORKDIR}/git"
+
+inherit gitpkgv
 
 RDEPENDS:${PN} += "dronekit dronekit-solo"
 

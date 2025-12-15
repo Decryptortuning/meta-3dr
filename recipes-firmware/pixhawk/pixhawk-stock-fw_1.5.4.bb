@@ -14,7 +14,7 @@ FILE_DST = "ArduCopter-StockCube-${PV}.${FILE_EXT}"
 
 do_fetch () {
 
-    wget https://github.com/Decryptortuning/ardupilot-solo/releases/download/solo-1.5.4/ArduCopter-v2.px4 -O ${WORKDIR}/${FILE_SRC}
+    wget https://github.com/OpenSolo/${REPO_NAME}/releases/download/${REPO_TAG}/${FILE_SRC} -O ${WORKDIR}/${FILE_SRC}
 
 }
 

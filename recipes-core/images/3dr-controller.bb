@@ -26,16 +26,15 @@ EXTRA_IMAGE_FEATURES += " \
 
 IMAGE_INSTALL += " \
     fsl-rc-local \
-    gst-fsl-plugin \
-    gst-plugins-base \
-    gst-plugins-base-app \
-    gst-plugins-good-udp \
-    gst-plugins-good-rtp \
-    gst-plugins-bad-mpegtsdemux \
+    imx-gst1.0-plugin \
+    gstreamer1.0-plugins-base \
+    gstreamer1.0-plugins-base-app \
+    gstreamer1.0-plugins-good-udp \
+    gstreamer1.0-plugins-good-rtp \
+    gstreamer1.0-plugins-bad-mpegtsdemux \
     libudev \
-    python3-subprocess \
-    python3-datetime \
-    python3-json \
+    python3-core \
+    python3-modules \
     python3-pip \
     python3-numpy \
     python3-posix-ipc \
@@ -44,7 +43,7 @@ IMAGE_INSTALL += " \
     iptables \
     iw \
     wireless-tools \
-    hostap-daemon \
+    hostapd \
     dnsmasq \
     sololink \
     sololink-python \
@@ -60,7 +59,6 @@ IMAGE_INSTALL += " \
     persist-logs \
     rsync \
     stm32loader \
-    compat-wireless-all \
 "
 
 update_config_files() {
@@ -110,9 +108,9 @@ update_config_files() {
     echo "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDW+YxPnz9h+qMXWh52H2DwvUwbm4u7LiPcEGp0DtfdEmciCQJDzklNvY0tQgy+xv1C66O4SKUQiNbcWDvW2+5+RsQT2FtzjD9jxnLwZf/O1dK4p8G9sW773/1/z+UnTKDRjuVvuFXcu7a6UjQZ7AYaQZhFRoelJtK5ztmZG7/cv8CYzxBX4EDIY1iah3R3pLNksOVbG+UaOnHPqlHewuAXwkdVzBjb8vuFdXsAaDAD6doECSVhqoaOHysjjrQov+AqKKcMmfZCDbyd6Zl9G8g7q6M7lCNqwUaIA3rK6K3t4pyS0t4oUeiI/mxFjf8S4nLOmWCaYcNCAvWE1uQeniS3" >> ${IMAGE_ROOTFS}/home/root/.ssh/authorized_keys
 
     #syslog is started in rcS (sololink.bb); the rc6.d entry is left as-is
-    rm ${IMAGE_ROOTFS}/etc/rc[0-5].d/[SK]*syslog
+    rm -f ${IMAGE_ROOTFS}/etc/rc[0-5].d/[SK]*syslog
     #this was started as S41 (sololink.bb)
-    rm ${IMAGE_ROOTFS}/etc/rcS.d/S40networking
+    rm -f ${IMAGE_ROOTFS}/etc/rcS.d/S40networking
 
     # pick controller's syslog.conf
     rm ${IMAGE_ROOTFS}/etc/syslog.conf.busybox.solo

@@ -1,0 +1,25 @@
+sololink: use python3 shebangs and modern ConfigParser
+
+Scarthgap builds ship Python 3.12, which no longer provides
+configparser.SafeConfigParser.  Also, /usr/bin/python is not provided.
+
+--- a/flightcode/dflog/dataFlashMAVLink-to-artoo.py
++++ b/flightcode/dflog/dataFlashMAVLink-to-artoo.py
+@@ -1,1 +1,1 @@
+-#!/usr/bin/python
++#!/usr/bin/python3
+
+--- a/flightcode/python/app_server.py
++++ b/flightcode/python/app_server.py
+@@ -1,1 +1,1 @@
+-#!/usr/bin/python
++#!/usr/bin/python3
+@@ -167,1 +167,1 @@ def get_config():
+-    config = ConfigParser.SafeConfigParser()
++    config = ConfigParser.ConfigParser()
+
+--- a/flightcode/python/led_control.py
++++ b/flightcode/python/led_control.py
+@@ -1,1 +1,1 @@
+-#!/usr/bin/python
++#!/usr/bin/python3

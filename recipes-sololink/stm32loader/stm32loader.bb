@@ -4,7 +4,7 @@ LICENSE = "GPLv3"
 LIC_FILES_CHKSUM = "file://COPYING3;md5=4fe869ee987a340198fb0d54c55c47f1"
 
 SRCREV = "${AUTOREV}"
-SRC_URI = "https://github.com/Decryptortuning/stm32loader.git;branch=PORT"
+SRC_URI = "git://github.com/Decryptortuning/stm32loader.git;protocol=https;branch=PORT"
 
 S = "${WORKDIR}/git"
 

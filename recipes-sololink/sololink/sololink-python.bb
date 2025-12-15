@@ -4,10 +4,11 @@ HOMEPAGE = "https://github.com/Decryptortuning/sololink-python"
 LICENSE = "GPLv3"
 LIC_FILES_CHKSUM = "file://LICENSE-APACHE;md5=3b83ef96387f14655fc854ddc3c6bd57"
 
-SRCREV = "${AUTOREV}"
-SRC_URI = "https://github.com/Decryptortuning/sololink-python.git;branch=PORT"
+SRCREV = "957534f59b543e269722ea3ce16714b4baf1fd2b"
+SRC_URI = "git://github.com/Decryptortuning/sololink-python.git;protocol=https;branch=PORT"
 
-PV = "${SRCPV}"
+PV = "0.0.0"
+PKGV = "${PV}+git${GITPKGV}"
 S = "${WORKDIR}/git"
 
-inherit setuptools3
+inherit setuptools3 gitpkgv

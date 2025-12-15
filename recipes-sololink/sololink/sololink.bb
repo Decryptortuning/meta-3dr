@@ -3,19 +3,37 @@ SUMMARY = "SoloLink software for RC, telemetry and video"
 LICENSE = "GPLv3"
 LIC_FILES_CHKSUM = "file://LICENSE-APACHE;md5=3b83ef96387f14655fc854ddc3c6bd57"
 
-SRCREV = "${AUTOREV}"
-SRC_URI = "https://github.com/Decryptortuning/sololink.git;branch=PORT"
+SRCREV = "ad8243d7d0b1a4ffc1f01b2f00bd3ad8d865ddec"
+SRC_URI = "git://github.com/Decryptortuning/sololink.git;protocol=https;branch=PORT"
+SRC_URI += " file://0001-fix-syslog-format-security.patch"
+SRC_URI += " file://0002-dataflash_logger-include-pthread.patch"
+SRC_URI += " file://0003-dataflash_logger-open-creat-mode.patch"
+SRC_URI += " file://0004-video-use-gstreamer1.0-pkg-config.patch"
+SRC_URI += " file://0005-vidlaunch-gstreamer1.0-caps.patch"
+SRC_URI += " file://0006-vidlaunch-gstreamer1.0-send_sprop.patch"
+SRC_URI += " file://0007-video-hdmi-add-ldflags.patch"
+SRC_URI += " file://0008-python3-shebangs-and-configparser.patch"
 
-PV = "${SRCPV}"
+PV = "0.0.0"
+PKGV = "${PV}+git${GITPKGV}"
 S = "${WORKDIR}/git"
+
+FILESEXTRAPATHS:prepend := "${THISDIR}/files:"
+
+inherit pkgconfig gitpkgv
 
 INHIBIT_PACKAGE_DEBUG_SPLIT = "1"
 
 DEPENDS += "libnl"
-DEPENDS += "gstreamer"
+DEPENDS += "gstreamer1.0"
 
 RDEPENDS:${PN} += "dronekit"
-RDEPENDS:${PN} += "imx-vpu libfslvpuwrap gst-fsl-plugin"
+RDEPENDS:${PN} += "bash"
+RDEPENDS:${PN} += "imx-vpu imx-vpuwrap gstreamer1.0 imx-gst1.0-plugin"
+RDEPENDS:${PN} += "python3-core"
+
+# sololink ships a customized /etc/init.d/networking.
+RREPLACES:${PN} += "init-ifupdown"
 
 # These need to match the environment variables in Sololink/config/sololink
 # All should come from the machine configuration meta-3dr/conf/machine/*
@@ -79,7 +97,6 @@ do_install () {
 	install -m 0755 ${S}/flightcode/video/cleanLibs.sh ${D}${bindir}
 	ln -sf ../../usr/bin/cleanLibs.sh ${D}${sysconfdir}/rcS.d/S61cleanLibs
 
-	install -m 0755 ${S}/net/etc/init.d/hostapd ${D}${sysconfdir}/init.d
 	install -m 0755 ${S}/net/etc/init.d/netinit ${D}${sysconfdir}/init.d
 	install -m 0755 ${S}/net/etc/init.d/networking ${D}${sysconfdir}/init.d
 	ln -sf ../init.d/netinit ${D}${sysconfdir}/rcS.d/S41netinit

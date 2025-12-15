@@ -1,0 +1,35 @@
+From b3c3adbc6b5b50d2c0f27b31df07f3a53f7d6d42 Mon Sep 17 00:00:00 2001
+From: OpenAI Codex <codex@openai.com>
+Date: Mon, 15 Dec 2025 00:00:00 +0000
+Subject: [PATCH] setup.py: disable mavnative extension build
+
+The mavlink-solo tree used here does not ship the generated C headers under
+generator/C/include_v1.0, so building the optional mavnative extension fails.
+Keep a pure-Python build instead.
+---
+ setup.py | 13 +------------
+ 1 file changed, 1 insertion(+), 12 deletions(-)
+
+diff --git a/setup.py b/setup.py
+index f974819..3c8fa0d 100644
+--- a/setup.py
++++ b/setup.py
+@@ -43,17 +43,7 @@ if not "NOGEN" in os.environ:
+         print("Building %s" % xml)
+         mavgen.mavgen_python_dialect(dialect, mavparse.PROTOCOL_1_0)
+ 
+-extensions = [] # Assume we might be unable to build native code
+-if platform.system() != 'Windows':
+-    extensions = [ Extension('mavnative',
+-                    sources = ['mavnative/mavnative.c'],
+-                    include_dirs = [
+-                        'generator/C/include_v1.0',
+-                        'mavnative'
+-                        ]
+-                    ) ]
+-else:
+-    print("Skipping mavnative due to Windows possibly missing a compiler...")
++extensions = []
+ 
+ setup (name = 'pymavlink',
+        version = version,
