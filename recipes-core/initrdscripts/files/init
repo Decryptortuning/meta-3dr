@@ -4,6 +4,38 @@ PATH=/sbin:/bin:/usr/sbin:/usr/bin
 
 ROOT_MOUNT="/rootfs/"
 
+BOOT_DISK="/dev/mmcblk0"
+BOOT_PART_PREFIX="p"
+
+part_dev() {
+	echo "${BOOT_DISK}${BOOT_PART_PREFIX}$1"
+}
+
+set_boot_disk_from_root() {
+	case "$ROOT_DEVICE" in
+		/dev/mmcblk[0-9]*p[0-9]*)
+			BOOT_DISK="${ROOT_DEVICE%p*}"
+			BOOT_PART_PREFIX="p"
+			;;
+		/dev/mmcblk[0-9]*)
+			BOOT_DISK="$ROOT_DEVICE"
+			BOOT_PART_PREFIX="p"
+			;;
+		/dev/sd[a-z][0-9]*)
+			BOOT_DISK="${ROOT_DEVICE%%[0-9]*}"
+			BOOT_PART_PREFIX=""
+			;;
+		/dev/sd[a-z])
+			BOOT_DISK="$ROOT_DEVICE"
+			BOOT_PART_PREFIX=""
+			;;
+		/dev/nvme*n[0-9]p[0-9]*)
+			BOOT_DISK="${ROOT_DEVICE%p*}"
+			BOOT_PART_PREFIX="p"
+			;;
+	esac
+}
+
 # Copied from initramfs-framework. The core of this script probably should be
 # turned into initramfs-framework modules to reduce duplication.
 udev_daemon() {
@@ -20,6 +52,37 @@ udev_daemon() {
 }
 
 _UDEV_DAEMON=`udev_daemon`
+
+mmc_sector_size() {
+	DISK_NAME="${BOOT_DISK##*/}"
+	SECTOR_SIZE=`cat "/sys/block/${DISK_NAME}/queue/hw_sector_size" 2>/dev/null`
+	[ -z "$SECTOR_SIZE" ] && SECTOR_SIZE=512
+	echo "$SECTOR_SIZE"
+}
+
+part_info() {
+	PART_NUM="$1"
+	parted -sm -- "$BOOT_DISK" unit s print 2>/dev/null | awk -F: -v p="$PART_NUM" '$1==p {print}'
+}
+
+part_end_sector() {
+	part_info "$1" | awk -F: '{gsub("s","",$3); print $3}'
+}
+
+part_size_sectors() {
+	part_info "$1" | awk -F: '{gsub("s","",$4); print $4}'
+}
+
+wait_for_part() {
+	PART_NUM="$1"
+	i=0
+	while [ $i -lt 50 ]; do
+		[ -b "$(part_dev "$PART_NUM")" ] && return 0
+		usleep 100000 2>/dev/null || sleep 0.1
+		i=$((i + 1))
+	done
+	return 1
+}
 
 early_setup() {
     mkdir -p /proc
@@ -75,23 +138,43 @@ fatal() {
 create_partitions()
 {
     echo "Creating partitions"
-    parted -s -- /dev/mmcblk0 unit MB mkpart primary fat32 100 200
-    parted -s -- /dev/mmcblk0 unit MB mkpart primary ext2 200 300
-    parted -s -- /dev/mmcblk0 unit MB mkpart primary ext2 300 -1
+    P1_END=`part_end_sector 1`
+    P1_SIZE=`part_size_sectors 1`
+    if [ -z "$P1_END" ] || [ -z "$P1_SIZE" ]; then
+        fatal "Unable to determine GOLDEN partition size"
+    fi
+
+    P2_START=$((P1_END + 1))
+    P2_END=$((P2_START + P1_SIZE - 1))
+
+    P3_START=$((P2_END + 1))
+    SECTOR_SIZE=`mmc_sector_size`
+    RWFS_SECTORS=$(( (100 * 1024 * 1024 + SECTOR_SIZE - 1) / SECTOR_SIZE ))
+    P3_END=$((P3_START + RWFS_SECTORS - 1))
+
+    P4_START=$((P3_END + 1))
+
+    parted -s -- "$BOOT_DISK" unit s mkpart primary fat32 ${P2_START}s ${P2_END}s
+    parted -s -- "$BOOT_DISK" unit s mkpart primary ext2 ${P3_START}s ${P3_END}s
+    parted -s -- "$BOOT_DISK" unit s mkpart primary ext2 ${P4_START}s 100%
+
+    wait_for_part 2 || fatal "Partition 2 did not appear"
+    wait_for_part 3 || fatal "Partition 3 did not appear"
+    wait_for_part 4 || fatal "Partition 4 did not appear"
     
     echo "Formatting LATEST"
-    mkfs.vfat /dev/mmcblk0p2 -n LATEST
+    mkfs.vfat "$(part_dev 2)" -n LATEST
     echo "Formatting RWFS"
-    mkfs.ext3 /dev/mmcblk0p3 -L RWFS -q
+    mkfs.ext3 "$(part_dev 3)" -L RWFS -q
     echo "Formatting LOG"
-    mkfs.ext3 /dev/mmcblk0p4 -L LOG -q
+    mkfs.ext3 "$(part_dev 4)" -L LOG -q
 }
 
 remove_partitions()
 {
-    parted -s -- /dev/mmcblk0 rm 2
-    parted -s -- /dev/mmcblk0 rm 3
-    parted -s -- /dev/mmcblk0 rm 4
+    parted -s -- "$BOOT_DISK" rm 2
+    parted -s -- "$BOOT_DISK" rm 3
+    parted -s -- "$BOOT_DISK" rm 4
 }
 
 setScreenUpdating() {
@@ -113,29 +196,35 @@ setLedDone() {
 }
 
 checkRwfs() {
-    fsck.ext3 -y /dev/mmcblk0p3
+    fsck.ext3 -y "$(part_dev 3)"
     if [ $? -ge 4 ]; then
         echo "Error detected on RWFS partition"
         setLedUpdating
-        umount /dev/mmcblk0p3
-        mkfs.ext3 /dev/mmcblk0p3 -L RWFS -q
+        umount "$(part_dev 3)"
+        mkfs.ext3 "$(part_dev 3)" -L RWFS -q
         setLedDone
     fi
 }
 
 checkLog() {
-    fsck.ext3 -y /dev/mmcblk0p4
+    fsck.ext3 -y "$(part_dev 4)"
     if [ $? -ge 4 ]; then
         echo "Error detected on LOG partition, repartitioning"
         setLedUpdating
-        umount /dev/mmcblk0p4
-        parted -s -- /dev/mmcblk0 rm 4
-        parted -s -- /dev/mmcblk0 unit MB mkpart primary ext2 300 -1
-        mkfs.ext3 /dev/mmcblk0p4 -L LOG -q
+        umount "$(part_dev 4)"
+        parted -s -- "$BOOT_DISK" rm 4
+        P3_END=`part_end_sector 3`
+        if [ -z "$P3_END" ]; then
+            fatal "Unable to determine RWFS end sector"
+        fi
+        P4_START=$((P3_END + 1))
+        parted -s -- "$BOOT_DISK" unit s mkpart primary ext2 ${P4_START}s 100%
+        wait_for_part 4 || fatal "Partition 4 did not appear"
+        mkfs.ext3 "$(part_dev 4)" -L LOG -q
         setLedDone
         # this should not trigger an "update done" screen
         mkdir -f /mnt/log/updates
-        mount /dev/mmcblk0p4 /mnt/log
+        mount "$(part_dev 4)" /mnt/log
         mkdir /mnt/log/updates
         touch /mnt/log/updates/READY
         umount /mnt/log
@@ -150,11 +239,11 @@ mount_and_boot() {
     mkdir -p /mnt/boot
     
     #Check the boot partitions
-    fsck.vfat -y /dev/mmcblk0p1
+    fsck.vfat -y "$(part_dev 1)"
     if [ $? -ge 4 ]; then
         echo "Error detected on GOLDEN partition"
     fi
-    fsck.vfat -y /dev/mmcblk0p2
+    fsck.vfat -y "$(part_dev 2)"
     if [ $? -ge 4 ]; then
         echo "Error detected on LATEST partition"
     fi
@@ -170,7 +259,7 @@ mount_and_boot() {
     checkRwfs
 
     #mount the read-write partition
-    mount /dev/mmcblk0p3 /mnt/rw_rootfs
+    mount "$(part_dev 3)" /mnt/rw_rootfs
 
     #Mount the overlayfs union partition (replacing legacy AUFS)
     modprobe overlay 2>/dev/null || true
@@ -203,9 +292,9 @@ factory_reset() {
 
     #Reflash u-boot if its file exists
     mkdir -p /mnt/golden
-    mount /dev/mmcblk0p1 /mnt/golden
+    mount "$(part_dev 1)" /mnt/golden
     if [ -e /mnt/golden/u-boot.imx ]; then
-        dd if=/mnt/golden/u-boot.imx of=/dev/mmcblk0 bs=512 seek=2
+        dd if=/mnt/golden/u-boot.imx of="$BOOT_DISK" bs=512 seek=2
     fi
 
     setLedDone
@@ -218,11 +307,12 @@ factory_reset() {
 echo "******************** INITRD ********************"
 early_setup
 read_args
+set_boot_disk_from_root
 [ -z "$CONSOLE" ] && CONSOLE="/dev/console"
 
 #if there is no LATEST partition, assume that we need to create
 #the RWFS and LOG partitions as well
-if [ ! -e /dev/mmcblk0p2 ]; then
+if [ ! -e "$(part_dev 2)" ]; then
     echo "No LATEST partition, creating partition scheme"
     #Set the LED to let the user know its formatting
     setScreenUpdating
@@ -245,7 +335,7 @@ else
     echo "Checking for an update..."
     #See if there is an update file we should be using
     mkdir /mnt/log
-    mount /dev/mmcblk0p4 /mnt/log
+    mount "$(part_dev 4)" /mnt/log
     if [ -e /mnt/log/updates/UPDATE ]; then
         echo "Update requested checking for update file"
 
@@ -304,15 +394,15 @@ else
 
         #Mount the LATEST partition and overwrite everything in it
         echo "Formatting LATEST"
-        mkfs.vfat /dev/mmcblk0p2 -n LATEST
+        mkfs.vfat "$(part_dev 2)" -n LATEST
         echo "Updating LATEST with $latestFile"
         mkdir /mnt/latest
-        mount /dev/mmcblk0p2 /mnt/latest
+        mount "$(part_dev 2)" /mnt/latest
         tar -xf $latestFile -C /mnt/latest/
 
         #if there is a u-boot.imx, flash it to the SD card
         if [ -e /mnt/latest/u-boot.imx ]; then
-            dd if=/mnt/latest/u-boot.imx of=/dev/mmcblk0 bs=512 seek=2
+            dd if=/mnt/latest/u-boot.imx of="$BOOT_DISK" bs=512 seek=2
         fi
 
         #We're all done here
@@ -325,14 +415,23 @@ else
             #Recreate new partitions 3 and 4
             umount /mnt/log /mnt/latest
 
-            parted -s -- /dev/mmcblk0 rm 3
-            parted -s -- /dev/mmcblk0 rm 4
-
-            parted -s -- /dev/mmcblk0 unit MB mkpart primary ext2 200 300
-            parted -s -- /dev/mmcblk0 unit MB mkpart primary ext2 300 -1
-
-            mkfs.ext3 /dev/mmcblk0p3 -L RWFS -q
-            mkfs.ext3 /dev/mmcblk0p4 -L LOG -q
+            parted -s -- "$BOOT_DISK" rm 3
+            parted -s -- "$BOOT_DISK" rm 4
+            P2_END=`part_end_sector 2`
+            if [ -z "$P2_END" ]; then
+                fatal "Unable to determine LATEST end sector"
+            fi
+            P3_START=$((P2_END + 1))
+            SECTOR_SIZE=`mmc_sector_size`
+            RWFS_SECTORS=$(( (100 * 1024 * 1024 + SECTOR_SIZE - 1) / SECTOR_SIZE ))
+            P3_END=$((P3_START + RWFS_SECTORS - 1))
+            P4_START=$((P3_END + 1))
+            parted -s -- "$BOOT_DISK" unit s mkpart primary ext2 ${P3_START}s ${P3_END}s
+            parted -s -- "$BOOT_DISK" unit s mkpart primary ext2 ${P4_START}s 100%
+            wait_for_part 3 || fatal "Partition 3 did not appear"
+            wait_for_part 4 || fatal "Partition 4 did not appear"
+            mkfs.ext3 "$(part_dev 3)" -L RWFS -q
+            mkfs.ext3 "$(part_dev 4)" -L LOG -q
         fi
 
         echo "Done updating, restarting"
@@ -358,14 +457,23 @@ else
         #Recreate new partitions 3 and 4
         umount /mnt/log
 
-        parted -s -- /dev/mmcblk0 rm 3
-        parted -s -- /dev/mmcblk0 rm 4
-
-        parted -s -- /dev/mmcblk0 unit MB mkpart primary ext2 200 300
-        parted -s -- /dev/mmcblk0 unit MB mkpart primary ext2 300 -1
-        
-        mkfs.ext3 /dev/mmcblk0p3 -L RWFS -q
-        mkfs.ext3 /dev/mmcblk0p4 -L LOG -q
+        parted -s -- "$BOOT_DISK" rm 3
+        parted -s -- "$BOOT_DISK" rm 4
+        P2_END=`part_end_sector 2`
+        if [ -z "$P2_END" ]; then
+            fatal "Unable to determine LATEST end sector"
+        fi
+        P3_START=$((P2_END + 1))
+        SECTOR_SIZE=`mmc_sector_size`
+        RWFS_SECTORS=$(( (100 * 1024 * 1024 + SECTOR_SIZE - 1) / SECTOR_SIZE ))
+        P3_END=$((P3_START + RWFS_SECTORS - 1))
+        P4_START=$((P3_END + 1))
+        parted -s -- "$BOOT_DISK" unit s mkpart primary ext2 ${P3_START}s ${P3_END}s
+        parted -s -- "$BOOT_DISK" unit s mkpart primary ext2 ${P4_START}s 100%
+        wait_for_part 3 || fatal "Partition 3 did not appear"
+        wait_for_part 4 || fatal "Partition 4 did not appear"
+        mkfs.ext3 "$(part_dev 3)" -L RWFS -q
+        mkfs.ext3 "$(part_dev 4)" -L LOG -q
 
         setLedDone
 
