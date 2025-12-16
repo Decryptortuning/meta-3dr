@@ -159,10 +159,17 @@ generate_imx_sdcard () {
 	fi
 
     #Copy the squashfs 
-    if [ -e ${DEPLOY_DIR_IMAGE}/${SDCARD_ROOTFS} ]; then
-        mcopy -i ${WORKDIR}/boot.img -s ${DEPLOY_DIR_IMAGE}/${SDCARD_ROOTFS} ::/${IMAGE_BASENAME}-${MACHINE}.squashfs
+    ROOTFS_IMAGE="${DEPLOY_DIR_IMAGE}/${SDCARD_ROOTFS}"
+    if [ ! -e "${ROOTFS_IMAGE}" ]; then
+        ROOTFS_IMAGE="${DEPLOY_DIR_IMAGE}/${IMAGE_NAME}.squashfs"
+    fi
+    if [ ! -e "${ROOTFS_IMAGE}" ]; then
+        ROOTFS_IMAGE="$(ls -1t ${DEPLOY_DIR_IMAGE}/${IMAGE_BASENAME}-${MACHINE}.rootfs-*.squashfs 2>/dev/null | head -n 1)"
+    fi
+    if [ -n "${ROOTFS_IMAGE}" ] && [ -e "${ROOTFS_IMAGE}" ]; then
+        mcopy -i ${WORKDIR}/boot.img -s ${ROOTFS_IMAGE} ::/${IMAGE_BASENAME}-${MACHINE}.squashfs
     else
-        bberror "Error, no squashfs file ${SDCARD_ROOTFS} found"
+        bberror "Error, no squashfs file found (expected ${SDCARD_ROOTFS} or ${IMAGE_NAME}.squashfs)"
         exit 1
     fi
     
@@ -180,7 +187,7 @@ generate_imx_sdcard () {
     # Create the update tarball
     cp ${DEPLOY_DIR_IMAGE}/${DTS_BASE_NAME}.dtb ${WORKDIR}/${DTS_BASE_NAME}.dtb
     cp ${KERNEL_BIN} ${WORKDIR}/${KERNEL_IMAGETYPE}
-    cp ${DEPLOY_DIR_IMAGE}/${SDCARD_ROOTFS} ${WORKDIR}/${IMAGE_BASENAME}-${MACHINE}.squashfs
+    cp ${ROOTFS_IMAGE} ${WORKDIR}/${IMAGE_BASENAME}-${MACHINE}.squashfs
     cp ${DEPLOY_DIR_IMAGE}/u-boot-${MACHINE}.${UBOOT_SUFFIX_SDCARD} ${WORKDIR}/u-boot.imx
 
     cd ${WORKDIR}
@@ -205,7 +212,18 @@ IMAGE_CMD:sdcard () {
 	# Ensure the boot partition is large enough for kernel+dtb+rootfs (+overhead).
 	BOOT_SPACE_KIB="${BOOT_SPACE}"
 	OVERHEAD_KIB=16384
-	ROOTFS_BYTES=$(stat -Lc%s "${DEPLOY_DIR_IMAGE}/${SDCARD_ROOTFS}")
+	ROOTFS_IMAGE="${DEPLOY_DIR_IMAGE}/${SDCARD_ROOTFS}"
+	if [ ! -e "${ROOTFS_IMAGE}" ]; then
+		ROOTFS_IMAGE="${DEPLOY_DIR_IMAGE}/${IMAGE_NAME}.squashfs"
+	fi
+	if [ ! -e "${ROOTFS_IMAGE}" ]; then
+		ROOTFS_IMAGE="$(ls -1t ${DEPLOY_DIR_IMAGE}/${IMAGE_BASENAME}-${MACHINE}.rootfs-*.squashfs 2>/dev/null | head -n 1)"
+	fi
+	if [ ! -e "${ROOTFS_IMAGE}" ]; then
+		bberror "Error, no squashfs file found (expected ${SDCARD_ROOTFS} or ${IMAGE_NAME}.squashfs)"
+		exit 1
+	fi
+	ROOTFS_BYTES=$(stat -Lc%s "${ROOTFS_IMAGE}")
 	ROOTFS_KIB=$(expr ${ROOTFS_BYTES} + 1023)
 	ROOTFS_KIB=$(expr ${ROOTFS_KIB} / 1024)
 	KERNEL_BIN="${DEPLOY_DIR_IMAGE}/${KERNEL_IMAGETYPE}-initramfs-${MACHINE}.bin"
