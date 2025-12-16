@@ -1,0 +1,24 @@
+#!/bin/sh
+
+PATH=/sbin:/bin:/usr/sbin:/usr/bin
+
+case "$1" in
+	start|S|"" )
+		# Ensure the driver is present; it is normally auto-loaded by udev,
+		# but the legacy SysV boot on Solo can race that.
+		modprobe adv7604 2>/dev/null || true
+
+		# Program EDID so the upstream adv7604 driver will assert HPD and the
+		# HDMI source will start sending video.
+		/usr/sbin/adv7610-edid --edid 1080p --wait-ms 3000 || true
+		;;
+	stop|K)
+		;;
+	*)
+		echo "Usage: $0 {start|stop}" >&2
+		exit 1
+		;;
+esac
+
+exit 0
+

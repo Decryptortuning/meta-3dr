@@ -35,6 +35,7 @@ IMAGE_INSTALL += " \
     gstreamer1.0-plugins-good-udp \
     gstreamer1.0-plugins-good-rtp \
     gstreamer1.0-plugins-bad-mpegtsmux \
+    adv7610-edid \
     libudev \
     python3-core \
     python3-modules \
