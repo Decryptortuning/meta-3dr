@@ -3,7 +3,7 @@ SUMMARY = "SoloLink software for RC, telemetry and video"
 LICENSE = "GPLv3"
 LIC_FILES_CHKSUM = "file://LICENSE-APACHE;md5=3b83ef96387f14655fc854ddc3c6bd57"
 
-SRCREV = "ad8243d7d0b1a4ffc1f01b2f00bd3ad8d865ddec"
+SRCREV = "c0d1b1cbe507232311c020d45c99bc28660a36de"
 SRC_URI = "git://github.com/Decryptortuning/sololink.git;protocol=https;branch=PORT"
 SRC_URI += " file://0001-fix-syslog-format-security.patch"
 SRC_URI += " file://0002-dataflash_logger-include-pthread.patch"
