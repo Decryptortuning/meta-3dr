@@ -32,9 +32,15 @@ IMAGE_INSTALL += " \
     imx-gst1.0-plugin \
     gstreamer1.0-plugins-base \
     gstreamer1.0-plugins-base-app \
+    gstreamer1.0-plugins-good \
     gstreamer1.0-plugins-good-udp \
     gstreamer1.0-plugins-good-rtp \
     gstreamer1.0-plugins-bad-mpegtsdemux \
+    gstreamer1.0-plugins-bad-videoparsersbad \
+    gstreamer1.0-plugins-bad-kms \
+    gstreamer1.0-plugins-libav \
+    gstreamer1.0-tools \
+    v4l-utils \
     libudev \
     python3-core \
     python3-modules \

@@ -87,6 +87,7 @@ wait_for_part() {
 early_setup() {
     mkdir -p /proc
     mkdir -p /sys
+    mkdir -p /dev
     mount -t proc proc /proc
     mount -t sysfs sysfs /sys
     mount -t devtmpfs none /dev
@@ -125,14 +126,34 @@ boot_live_root() {
     mount -n --move /dev ${ROOT_MOUNT}/dev
 
     echo "Switching root"
-    cd $ROOT_MOUNT
-    exec switch_root -c /dev/console $ROOT_MOUNT /sbin/init
+    cd "$ROOT_MOUNT" || fatal "Failed to chdir to new root ($ROOT_MOUNT)"
+
+    # IMPORTANT: /init is PID 1. Use exec so /sbin/init becomes PID 1.
+    # Use util-linux switch_root semantics (no BusyBox-only -c flag).
+    exec switch_root "$ROOT_MOUNT" /sbin/init
+    fatal "switch_root failed"
 }
 
 fatal() {
-    echo $1 >$CONSOLE
-    echo >$CONSOLE
-    exec sh
+    msg="$1"
+
+    for c in "$CONSOLE" "${ROOT_MOUNT}/dev/console" "/dev/console" "/dev/kmsg"; do
+        [ -n "$c" ] || continue
+        if echo "$msg" >"$c" 2>/dev/null; then
+            echo >"$c" 2>/dev/null || true
+            break
+        fi
+    done
+
+    if command -v sh >/dev/null 2>&1; then
+        exec sh
+    elif [ -x /bin/sh ]; then
+        exec /bin/sh
+    elif [ -x /bin/busybox ]; then
+        exec /bin/busybox sh
+    fi
+
+    exec /bin/bash
 }
 
 create_partitions()
@@ -165,9 +186,9 @@ create_partitions()
     echo "Formatting LATEST"
     mkfs.vfat "$(part_dev 2)" -n LATEST
     echo "Formatting RWFS"
-    mkfs.ext3 "$(part_dev 3)" -L RWFS -q
+    mkfs.ext3 -F "$(part_dev 3)" -L RWFS -q
     echo "Formatting LOG"
-    mkfs.ext3 "$(part_dev 4)" -L LOG -q
+    mkfs.ext3 -F "$(part_dev 4)" -L LOG -q
 }
 
 remove_partitions()
@@ -201,7 +222,7 @@ checkRwfs() {
         echo "Error detected on RWFS partition"
         setLedUpdating
         umount "$(part_dev 3)"
-        mkfs.ext3 "$(part_dev 3)" -L RWFS -q
+        mkfs.ext3 -F "$(part_dev 3)" -L RWFS -q
         setLedDone
     fi
 }
@@ -220,7 +241,7 @@ checkLog() {
         P4_START=$((P3_END + 1))
         parted -s -- "$BOOT_DISK" unit s mkpart primary ext2 ${P4_START}s 100%
         wait_for_part 4 || fatal "Partition 4 did not appear"
-        mkfs.ext3 "$(part_dev 4)" -L LOG -q
+        mkfs.ext3 -F "$(part_dev 4)" -L LOG -q
         setLedDone
         # this should not trigger an "update done" screen
         mkdir -f /mnt/log/updates
@@ -430,8 +451,8 @@ else
             parted -s -- "$BOOT_DISK" unit s mkpart primary ext2 ${P4_START}s 100%
             wait_for_part 3 || fatal "Partition 3 did not appear"
             wait_for_part 4 || fatal "Partition 4 did not appear"
-            mkfs.ext3 "$(part_dev 3)" -L RWFS -q
-            mkfs.ext3 "$(part_dev 4)" -L LOG -q
+            mkfs.ext3 -F "$(part_dev 3)" -L RWFS -q
+            mkfs.ext3 -F "$(part_dev 4)" -L LOG -q
         fi
 
         echo "Done updating, restarting"
@@ -472,8 +493,8 @@ else
         parted -s -- "$BOOT_DISK" unit s mkpart primary ext2 ${P4_START}s 100%
         wait_for_part 3 || fatal "Partition 3 did not appear"
         wait_for_part 4 || fatal "Partition 4 did not appear"
-        mkfs.ext3 "$(part_dev 3)" -L RWFS -q
-        mkfs.ext3 "$(part_dev 4)" -L LOG -q
+        mkfs.ext3 -F "$(part_dev 3)" -L RWFS -q
+        mkfs.ext3 -F "$(part_dev 4)" -L LOG -q
 
         setLedDone
 
