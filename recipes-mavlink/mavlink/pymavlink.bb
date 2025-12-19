@@ -6,7 +6,7 @@ LIC_FILES_CHKSUM = "file://README.txt;md5=2fc3900b33c4131645987a81bfe6a55f"
 
 FILESEXTRAPATHS:prepend := "${THISDIR}/files:"
 
-SRCREV = "3887c3f7b491b41b02a6061dfd4a1f8f54162da7"
+SRCREV = "${AUTOREV}"
 SRC_URI = "git://github.com/Decryptortuning/mavlink-solo.git;protocol=https;branch=PORT"
 SRC_URI += "file://0001-mavcrc-python3-frombytes.patch"
 SRC_URI += "file://0002-disable-mavnative-extension.patch"
