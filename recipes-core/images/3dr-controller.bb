@@ -10,7 +10,7 @@ do_image_sdcard[depends] += "parted-native:do_populate_sysroot \
 
 PV = "3.0.0"
 VER_NAME = "Open Solo 3.0.0"
-BUILD_DATE = "Build Date: $(date "+%Y%m%d%H%M%S")"
+BUILD_DATE = "Build Date: ${@time.strftime('%Y%m%d%H%M%S', time.gmtime())}"
 
 # Alias target name (avoid a second image recipe that would collide in deploy/).
 PROVIDES += "solo_controller"
@@ -37,7 +37,8 @@ IMAGE_INSTALL += " \
     gstreamer1.0-plugins-good-rtp \
     gstreamer1.0-plugins-bad-mpegtsdemux \
     gstreamer1.0-plugins-bad-videoparsersbad \
-    gstreamer1.0-plugins-bad-kms \
+    gstreamer1.0-libav \
+    gstreamer1.0 \
     v4l-utils \
     libudev \
     python3-core \
@@ -73,7 +74,7 @@ update_config_files() {
     mv ${IMAGE_ROOTFS}/etc/network/interfaces-controller \
             ${IMAGE_ROOTFS}/etc/network/interfaces
     rm ${IMAGE_ROOTFS}/etc/network/interfaces-solo
-    # AP disabled by default, Station enabled
+    # AP enabled by default, Station disabled
     sed -i 's/^ApEnable=.*/ApEnable=True/' ${IMAGE_ROOTFS}/etc/sololink.orig
     sed -i 's/^StationEnable=.*/StationEnable=False/' ${IMAGE_ROOTFS}/etc/sololink.orig
     # Create golden config files
@@ -81,6 +82,8 @@ update_config_files() {
     mv ${IMAGE_ROOTFS}/etc/wpa_supplicant.conf ${IMAGE_ROOTFS}/etc/wpa_supplicant.orig
     # Change hostname so solo and controller are different
     echo "3dr_controller" > ${IMAGE_ROOTFS}/etc/hostname
+    # Provide /usr/bin/python for any remaining legacy shebangs
+    ln -sf python3 ${IMAGE_ROOTFS}/usr/bin/python
     #Filesystem available over USB OTG port
     echo "g_acm_ms file=/dev/mmcblk0p4" >> ${IMAGE_ROOTFS}/etc/modules
     #Clear out the leases file on boot
