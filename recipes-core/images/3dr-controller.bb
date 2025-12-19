@@ -38,7 +38,7 @@ IMAGE_INSTALL += " \
     gstreamer1.0-plugins-bad-mpegtsdemux \
     gstreamer1.0-plugins-bad-videoparsersbad \
     gstreamer1.0-plugins-bad-kms \
-    gstreamer1.0-plugins-libav \
+    gstreamer1.0-libav \
     gstreamer1.0-tools \
     v4l-utils \
     libudev \
