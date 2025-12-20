@@ -47,6 +47,7 @@ IMAGE_INSTALL += " \
     python3-numpy \
     python3-posix-ipc \
     python3-monotonic \
+    alsa-ucm-conf \
     openssh \
     iptables \
     iw \
