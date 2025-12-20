@@ -70,6 +70,7 @@ do_image_sdcard[depends] += "parted-native:do_populate_sysroot \
                              mtools-native:do_populate_sysroot \
                              virtual/kernel:do_deploy \
                              ${@'%s:do_deploy' % d.getVar('IMAGE_BOOTLOADER') if d.getVar('IMAGE_BOOTLOADER') else ''}"
+do_image_sdcard[depends] += "${PN}:do_image_squashfs"
 
 SDCARD = "${DEPLOY_DIR_IMAGE}/${IMAGE_LINK_NAME}.sdcard"
 
