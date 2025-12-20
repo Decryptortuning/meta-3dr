@@ -191,6 +191,57 @@ create_partitions()
     mkfs.ext3 -F "$(part_dev 4)" -L LOG -q
 }
 
+seed_latest_from_golden()
+{
+    echo "Seeding LATEST from GOLDEN"
+
+    mkdir -p /mnt/golden /mnt/latest
+
+    if ! grep -q " /mnt/golden " /proc/mounts 2>/dev/null; then
+        mount -o ro "$(part_dev 1)" /mnt/golden || fatal "Failed to mount GOLDEN"
+    fi
+
+    if ! grep -q " /mnt/latest " /proc/mounts 2>/dev/null; then
+        mount "$(part_dev 2)" /mnt/latest || fatal "Failed to mount LATEST"
+    fi
+
+    # Copy all boot payload files (including dotfiles) so U-Boot can boot
+    # from LATEST on the next reboot.
+    #
+    # NOTE: BusyBox ash does not enable pipefail by default, so a tar|tar pipeline
+    # can succeed even if the first tar fails. Use cp(1) and verify a key file.
+    find /mnt/latest -mindepth 1 -maxdepth 1 -exec rm -rf {} + 2>/dev/null || true
+    # NOTE: Avoid cp -a/-p here. vfat doesn't support Unix ownership/permissions
+    # and some cp implementations return non-zero when they can't preserve them,
+    # which can abort seeding and leave p2 empty.
+    cp -R /mnt/golden/. /mnt/latest/ || fatal "Failed to copy GOLDEN -> LATEST"
+    [ -e /mnt/latest/uImage ] || fatal "LATEST seed failed: missing uImage"
+
+    echo "LATEST seeded:"
+    ls -la /mnt/latest 2>/dev/null || true
+
+    sync
+    umount /mnt/latest 2>/dev/null || true
+    umount /mnt/golden 2>/dev/null || true
+}
+
+latest_has_boot_payload()
+{
+    mkdir -p /mnt/latest_check
+    if ! mount -o ro "$(part_dev 2)" /mnt/latest_check 2>/dev/null; then
+        rmdir /mnt/latest_check 2>/dev/null || true
+        return 1
+    fi
+
+    ok=0
+    [ -e /mnt/latest_check/uImage ] || ok=1
+    ls /mnt/latest_check/*.dtb >/dev/null 2>&1 || ok=1
+    ls /mnt/latest_check/*.squashfs >/dev/null 2>&1 || ok=1
+    umount /mnt/latest_check 2>/dev/null || true
+    rmdir /mnt/latest_check 2>/dev/null || true
+    return $ok
+}
+
 remove_partitions()
 {
     parted -s -- "$BOOT_DISK" rm 2
@@ -318,9 +369,11 @@ factory_reset() {
         dd if=/mnt/golden/u-boot.imx of="$BOOT_DISK" bs=512 seek=2
     fi
 
+    umount /mnt/golden
+    seed_latest_from_golden
+
     setLedDone
 
-    umount /mnt/golden
     sync
     /sbin/shutdown -r -n now
 }
@@ -341,14 +394,21 @@ if [ ! -e "$(part_dev 2)" ]; then
 
     create_partitions
 
+    seed_latest_from_golden
+
     setLedDone
 
 else
     #If there was a factory reset request from u-boot, handle it here
     echo "Factory reset: " $FORCE_FACTORY_RESET
-    if [ $FORCE_FACTORY_RESET == 1 ]; then
+    if [ "${FORCE_FACTORY_RESET:-0}" = "1" ]; then
         echo "Factory reset from GPIO request"
         factory_reset
+    fi
+
+    if ! latest_has_boot_payload; then
+        echo "LATEST missing boot payload, re-seeding from GOLDEN"
+        seed_latest_from_golden
     fi
 
     checkLog
@@ -397,7 +457,7 @@ else
 
         cd /mnt/log/updates
         md5res=`md5sum -c ${latestFile}.md5 | awk '{print $2}'`
-        if [ $md5res == 'OK' ]; then
+        if [ "$md5res" = 'OK' ]; then
             echo "MD5 OK, proceeding"
         else
             echo "MD5 failure, removing file and rebooting"
