@@ -92,6 +92,38 @@ update_config_files() {
     # Mount logging partition
     mkdir ${IMAGE_ROOTFS}/log
     echo "/dev/mmcblk0p4 /log auto defaults 0 2" >> ${IMAGE_ROOTFS}/etc/fstab
+
+    # Persist syslog/klogd output to the LOG partition so reboot loops can be
+    # debugged after the fact by inspecting /log/messages on the host.
+    if [ -f ${IMAGE_ROOTFS}/etc/syslog-startup.conf ]; then
+        sed -i 's#^LOGFILE=.*#LOGFILE=/log/messages#' ${IMAGE_ROOTFS}/etc/syslog-startup.conf
+        # Ensure rotation is enabled (busybox syslogd -s/-b options).
+        if ! grep -q '^ROTATESIZE=' ${IMAGE_ROOTFS}/etc/syslog-startup.conf; then
+            echo "ROTATESIZE=10000\t\t# rotate log if grown beyond X [kByte]" >> ${IMAGE_ROOTFS}/etc/syslog-startup.conf
+        fi
+        if ! grep -q '^ROTATEGENS=' ${IMAGE_ROOTFS}/etc/syslog-startup.conf; then
+            echo "ROTATEGENS=1\t\t\t# keep X generations of rotated logs" >> ${IMAGE_ROOTFS}/etc/syslog-startup.conf
+        fi
+        if ! grep -q '^LOGLEVEL=' ${IMAGE_ROOTFS}/etc/syslog-startup.conf; then
+            echo "LOGLEVEL=7\t\t\t# local log level (between 1 and 8)" >> ${IMAGE_ROOTFS}/etc/syslog-startup.conf
+        fi
+    else
+        cat > ${IMAGE_ROOTFS}/etc/syslog-startup.conf <<'EOF'
+# This configuration file is used by the busybox syslog init script,
+# /etc/init.d/syslog to set syslog configuration at start time.
+
+DESTINATION=file		# log destinations (buffer file remote)
+LOGFILE=/log/messages		# where to log (file)
+REMOTE=loghost:514		# where to log (syslog remote)
+REDUCE=no			# reduce-size logging
+DROPDUPLICATES=no		# whether to drop duplicate log entries
+ROTATESIZE=10000		# rotate log if grown beyond X [kByte]
+ROTATEGENS=1			# keep X generations of rotated logs
+BUFFERSIZE=64			# size of circular buffer [kByte]
+FOREGROUND=no			# run in foreground (don't use!)
+LOGLEVEL=7			# local log level (between 1 and 8)
+EOF
+    fi
     # Blacklist the Golden partition from udev
     echo "/dev/mmcblk0p1" >> ${IMAGE_ROOTFS}/etc/udev/mount.blacklist
     # Put a "Version" file in the root partition
