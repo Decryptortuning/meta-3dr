@@ -159,10 +159,21 @@ generate_imx_sdcard () {
 		done
 	fi
 
-    #Copy the squashfs 
-    ROOTFS_IMAGE="${DEPLOY_DIR_IMAGE}/${IMAGE_NAME}.squashfs"
+    # Copy the squashfs rootfs. Prefer the image workdir deploy location
+    # (IMGDEPLOYDIR) to avoid accidentally picking an older squashfs still
+    # sitting in DEPLOY_DIR_IMAGE from a previous build.
+    ROOTFS_IMAGE="${IMGDEPLOYDIR}/${IMAGE_NAME}.squashfs"
+    if [ ! -e "${ROOTFS_IMAGE}" ]; then
+        ROOTFS_IMAGE="${IMGDEPLOYDIR}/${SDCARD_ROOTFS}"
+    fi
+    if [ ! -e "${ROOTFS_IMAGE}" ]; then
+        ROOTFS_IMAGE="${DEPLOY_DIR_IMAGE}/${IMAGE_NAME}.squashfs"
+    fi
     if [ ! -e "${ROOTFS_IMAGE}" ]; then
         ROOTFS_IMAGE="${DEPLOY_DIR_IMAGE}/${SDCARD_ROOTFS}"
+    fi
+    if [ ! -e "${ROOTFS_IMAGE}" ]; then
+        ROOTFS_IMAGE="$(ls -1t ${IMGDEPLOYDIR}/${IMAGE_BASENAME}-${MACHINE}.rootfs-*.squashfs 2>/dev/null | head -n 1)"
     fi
     if [ ! -e "${ROOTFS_IMAGE}" ]; then
         ROOTFS_IMAGE="$(ls -1t ${DEPLOY_DIR_IMAGE}/${IMAGE_BASENAME}-${MACHINE}.rootfs-*.squashfs 2>/dev/null | head -n 1)"
@@ -213,10 +224,19 @@ IMAGE_CMD:sdcard () {
 	# Ensure the boot partition is large enough for kernel+dtb+rootfs (+overhead).
 	BOOT_SPACE_KIB="${BOOT_SPACE}"
 	OVERHEAD_KIB=16384
-    ROOTFS_IMAGE="${DEPLOY_DIR_IMAGE}/${IMAGE_NAME}.squashfs"
+    ROOTFS_IMAGE="${IMGDEPLOYDIR}/${IMAGE_NAME}.squashfs"
+    if [ ! -e "${ROOTFS_IMAGE}" ]; then
+        ROOTFS_IMAGE="${IMGDEPLOYDIR}/${SDCARD_ROOTFS}"
+    fi
+    if [ ! -e "${ROOTFS_IMAGE}" ]; then
+        ROOTFS_IMAGE="${DEPLOY_DIR_IMAGE}/${IMAGE_NAME}.squashfs"
+    fi
     if [ ! -e "${ROOTFS_IMAGE}" ]; then
         ROOTFS_IMAGE="${DEPLOY_DIR_IMAGE}/${SDCARD_ROOTFS}"
     fi
+	if [ ! -e "${ROOTFS_IMAGE}" ]; then
+		ROOTFS_IMAGE="$(ls -1t ${IMGDEPLOYDIR}/${IMAGE_BASENAME}-${MACHINE}.rootfs-*.squashfs 2>/dev/null | head -n 1)"
+	fi
 	if [ ! -e "${ROOTFS_IMAGE}" ]; then
 		ROOTFS_IMAGE="$(ls -1t ${DEPLOY_DIR_IMAGE}/${IMAGE_BASENAME}-${MACHINE}.rootfs-*.squashfs 2>/dev/null | head -n 1)"
 	fi
