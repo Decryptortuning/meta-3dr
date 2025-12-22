@@ -140,6 +140,95 @@ EOF
     #1MB max rx socket buffer for video
     echo "net.core.rmem_max=1048576" >> ${IMAGE_ROOTFS}/etc/sysctl.conf
 
+    # -----------------------------------------------------------------------------
+    # Time / RTC handling
+    # -----------------------------------------------------------------------------
+    #
+    # Many controllers are power-cut (not cleanly shutdown), and some boards do
+    # not have a stable, battery-backed RTC. When the RTC contains an invalid
+    # date, hwclock --hctosys can fail with "settimeofday() failed: Invalid argument"
+    # early in boot.
+    #
+    # For log sanity, prefer /etc/timestamp (updated periodically) rather than
+    # attempting to set from RTC each boot.
+    if grep -q '^HWCLOCKACCESS=' ${IMAGE_ROOTFS}/etc/default/rcS; then
+        sed -i 's/^HWCLOCKACCESS=.*/HWCLOCKACCESS=no/' ${IMAGE_ROOTFS}/etc/default/rcS
+    else
+        echo "HWCLOCKACCESS=no" >> ${IMAGE_ROOTFS}/etc/default/rcS
+    fi
+
+    # Ensure /etc/timestamp exists with a sane value (bootmisc uses this to
+    # keep time monotonically increasing across power cuts).
+    echo "${@time.strftime('%Y%m%d%H%M%S', time.gmtime())}" > ${IMAGE_ROOTFS}/etc/timestamp
+
+    # Periodically update /etc/timestamp while the system is up.
+    cat > ${IMAGE_ROOTFS}/etc/init.d/clock_sync <<'EOF'
+#!/bin/sh
+### BEGIN INIT INFO
+# Provides:          clock_sync
+# Required-Start:    $local_fs
+# Default-Start:     S
+# Default-Stop:
+# Short-Description: Periodically update /etc/timestamp
+### END INIT INFO
+
+case "$1" in
+    start)
+        /usr/bin/clock_sync >/dev/null 2>&1 &
+        ;;
+    stop)
+        ;;
+    *)
+        echo "Usage: clock_sync {start|stop}" >&2
+        exit 1
+        ;;
+esac
+exit 0
+EOF
+    chmod +x ${IMAGE_ROOTFS}/etc/init.d/clock_sync
+    ln -sf ../init.d/clock_sync ${IMAGE_ROOTFS}/etc/rcS.d/S50clock_sync
+
+    # -----------------------------------------------------------------------------
+    # ALSA UCM
+    # -----------------------------------------------------------------------------
+    #
+    # alsactl uses ALSA UCM (Use Case Manager) when available. The upstream
+    # alsa-ucm-conf package does not ship a profile for the controller's
+    # HDMI sound card, so alsactl prints:
+    #   snd_use_case_mgr_open error: failed to import hw:0 use case configuration
+    #
+    # Provide a minimal UCM2 profile for "imx-hdmi-soc" to avoid that warning.
+    mkdir -p ${IMAGE_ROOTFS}/usr/share/alsa/ucm2/imx-hdmi-soc
+    cat > ${IMAGE_ROOTFS}/usr/share/alsa/ucm2/imx-hdmi-soc/HiFi.conf <<'EOF'
+Syntax 3
+
+SectionVerb {
+    Value {
+        TQ "HiFi"
+    }
+}
+
+SectionDevice."HDMI" {
+    Comment "HDMI Audio"
+    Value {
+        PlaybackPriority 100
+        PlaybackPCM "hw:${CardId}"
+    }
+}
+EOF
+
+    for drv in imx-hdmi-soc imx6qdl-audio-hdmi; do
+        mkdir -p ${IMAGE_ROOTFS}/usr/share/alsa/ucm2/conf.d/$drv
+        cat > ${IMAGE_ROOTFS}/usr/share/alsa/ucm2/conf.d/$drv/imx-hdmi-soc.conf <<'EOF'
+Syntax 3
+
+SectionUseCase."HiFi" {
+    File "/imx-hdmi-soc/HiFi.conf"
+    Comment "HDMI Audio"
+}
+EOF
+    done
+
     #Password is TjSDBkAu
     sed 's%^root:[^:]*:%root:I8hkLIWAASD4Q:%' \
            < ${IMAGE_ROOTFS}/etc/shadow \
