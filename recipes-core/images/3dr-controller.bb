@@ -198,35 +198,16 @@ EOF
     #   snd_use_case_mgr_open error: failed to import hw:0 use case configuration
     #
     # Provide a minimal UCM2 profile for "imx-hdmi-soc" to avoid that warning.
-    mkdir -p ${IMAGE_ROOTFS}/usr/share/alsa/ucm2/imx-hdmi-soc
-    cat > ${IMAGE_ROOTFS}/usr/share/alsa/ucm2/imx-hdmi-soc/HiFi.conf <<'EOF'
-Syntax 3
-
-SectionVerb {
-    Value {
-        TQ "HiFi"
-    }
-}
-
-SectionDevice."HDMI" {
-    Comment "HDMI Audio"
-    Value {
-        PlaybackPriority 100
-        PlaybackPCM "hw:${CardId}"
-    }
-}
-EOF
+    # Note: store the UCM files as standalone layer files (rather than here-docs)
+    # to avoid bitbake parser confusion with braces inside shell functions.
+    install -d ${IMAGE_ROOTFS}/usr/share/alsa/ucm2/imx-hdmi-soc
+    install -m 0644 ${THISDIR}/files/alsa-ucm/imx-hdmi-soc/HiFi.conf \
+        ${IMAGE_ROOTFS}/usr/share/alsa/ucm2/imx-hdmi-soc/HiFi.conf
 
     for drv in imx-hdmi-soc imx6qdl-audio-hdmi; do
-        mkdir -p ${IMAGE_ROOTFS}/usr/share/alsa/ucm2/conf.d/$drv
-        cat > ${IMAGE_ROOTFS}/usr/share/alsa/ucm2/conf.d/$drv/imx-hdmi-soc.conf <<'EOF'
-Syntax 3
-
-SectionUseCase."HiFi" {
-    File "/imx-hdmi-soc/HiFi.conf"
-    Comment "HDMI Audio"
-}
-EOF
+        install -d ${IMAGE_ROOTFS}/usr/share/alsa/ucm2/conf.d/$drv
+        install -m 0644 ${THISDIR}/files/alsa-ucm/imx-hdmi-soc/imx-hdmi-soc.conf \
+            ${IMAGE_ROOTFS}/usr/share/alsa/ucm2/conf.d/$drv/imx-hdmi-soc.conf
     done
 
     #Password is TjSDBkAu
