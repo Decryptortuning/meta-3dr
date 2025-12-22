@@ -203,11 +203,15 @@ EOF
     install -d ${IMAGE_ROOTFS}/usr/share/alsa/ucm2/imx-hdmi-soc
     install -m 0644 ${THISDIR}/files/alsa-ucm/imx-hdmi-soc/HiFi.conf \
         ${IMAGE_ROOTFS}/usr/share/alsa/ucm2/imx-hdmi-soc/HiFi.conf
+    install -m 0644 ${THISDIR}/files/alsa-ucm/imx-hdmi-soc/imx-hdmi-soc.conf \
+        ${IMAGE_ROOTFS}/usr/share/alsa/ucm2/imx-hdmi-soc/imx-hdmi-soc.conf
 
     for drv in imx-hdmi-soc imx6qdl-audio-hdmi; do
         install -d ${IMAGE_ROOTFS}/usr/share/alsa/ucm2/conf.d/$drv
         install -m 0644 ${THISDIR}/files/alsa-ucm/imx-hdmi-soc/imx-hdmi-soc.conf \
             ${IMAGE_ROOTFS}/usr/share/alsa/ucm2/conf.d/$drv/imx-hdmi-soc.conf
+        install -m 0644 ${THISDIR}/files/alsa-ucm/imx-hdmi-soc/HiFi.conf \
+            ${IMAGE_ROOTFS}/usr/share/alsa/ucm2/conf.d/$drv/HiFi.conf
     done
 
     #Password is TjSDBkAu
