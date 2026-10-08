@@ -72,11 +72,11 @@ do_image_sdcard[depends] += "parted-native:do_populate_sysroot \
                              ${@'%s:do_deploy' % d.getVar('IMAGE_BOOTLOADER') if d.getVar('IMAGE_BOOTLOADER') else ''}"
 do_image_sdcard[depends] += "${PN}:do_image_squashfs"
 
-SDCARD = "${DEPLOY_DIR_IMAGE}/${IMAGE_LINK_NAME}.sdcard"
+SDCARD = "${IMGDEPLOYDIR}/${IMAGE_NAME}.sdcard"
 
 # The 3DR sdcard generator always copies the squashfs rootfs onto the boot
 # partition; keep a non-empty default to satisfy IMAGE_CMD:sdcard checks.
-SDCARD_ROOTFS ?= "${IMAGE_LINK_NAME}.squashfs"
+SDCARD_ROOTFS ?= "${IMAGE_NAME}.squashfs"
 
 # meta-freescale/meta-imx (Scarthgap) uses extended machine override tokens
 # like "mx6-generic-bsp" instead of the older "mx6".
@@ -159,32 +159,14 @@ generate_imx_sdcard () {
 		done
 	fi
 
-    # Copy the squashfs rootfs. Prefer the image workdir deploy location
-    # (IMGDEPLOYDIR) to avoid accidentally picking an older squashfs still
-    # sitting in DEPLOY_DIR_IMAGE from a previous build.
+    # Use only this task's squashfs; stale deployed images must never be selected.
     ROOTFS_IMAGE="${IMGDEPLOYDIR}/${IMAGE_NAME}.squashfs"
-    if [ ! -e "${ROOTFS_IMAGE}" ]; then
-        ROOTFS_IMAGE="${IMGDEPLOYDIR}/${SDCARD_ROOTFS}"
-    fi
-    if [ ! -e "${ROOTFS_IMAGE}" ]; then
-        ROOTFS_IMAGE="${DEPLOY_DIR_IMAGE}/${IMAGE_NAME}.squashfs"
-    fi
-    if [ ! -e "${ROOTFS_IMAGE}" ]; then
-        ROOTFS_IMAGE="${DEPLOY_DIR_IMAGE}/${SDCARD_ROOTFS}"
-    fi
-    if [ ! -e "${ROOTFS_IMAGE}" ]; then
-        ROOTFS_IMAGE="$(ls -1t ${IMGDEPLOYDIR}/${IMAGE_BASENAME}-${MACHINE}.rootfs-*.squashfs 2>/dev/null | head -n 1)"
-    fi
-    if [ ! -e "${ROOTFS_IMAGE}" ]; then
-        ROOTFS_IMAGE="$(ls -1t ${DEPLOY_DIR_IMAGE}/${IMAGE_BASENAME}-${MACHINE}.rootfs-*.squashfs 2>/dev/null | head -n 1)"
-    fi
-    if [ -n "${ROOTFS_IMAGE}" ] && [ -e "${ROOTFS_IMAGE}" ]; then
-        mcopy -i ${WORKDIR}/boot.img -s ${ROOTFS_IMAGE} ::/${IMAGE_BASENAME}-${MACHINE}.squashfs
-    else
-        bberror "Error, no squashfs file found (expected ${IMAGE_NAME}.squashfs or ${SDCARD_ROOTFS})"
+    if [ ! -s "${ROOTFS_IMAGE}" ]; then
+        bberror "Missing current squashfs: ${ROOTFS_IMAGE}"
         exit 1
     fi
-    
+    mcopy -i ${WORKDIR}/boot.img -s ${ROOTFS_IMAGE} ::/${IMAGE_BASENAME}-${MACHINE}.squashfs
+
     #Copy the u-boot.imx
     if [ -e ${DEPLOY_DIR_IMAGE}/u-boot.imx ]; then
         mcopy -i ${WORKDIR}/boot.img -s ${DEPLOY_DIR_IMAGE}/u-boot.imx ::/u-boot.imx
@@ -203,14 +185,14 @@ generate_imx_sdcard () {
     cp ${DEPLOY_DIR_IMAGE}/u-boot-${MACHINE}.${UBOOT_SUFFIX_SDCARD} ${WORKDIR}/u-boot.imx
 
     cd ${WORKDIR}
-    tar -pczf ${DEPLOY_DIR_IMAGE}/${IMAGE_BASENAME}.tar.gz \
+    tar -pczf ${IMGDEPLOYDIR}/${IMAGE_BASENAME}.tar.gz \
               ${DTS_BASE_NAME}.dtb \
               ${KERNEL_IMAGETYPE} \
               ${IMAGE_BASENAME}-${MACHINE}.squashfs \
               u-boot.imx
 
     #tarball md5sum
-    cd ${DEPLOY_DIR_IMAGE}
+    cd ${IMGDEPLOYDIR}
     md5sum ${IMAGE_BASENAME}.tar.gz > ${IMAGE_BASENAME}.tar.gz.md5
     cd ${WORKDIR}
 }
@@ -225,25 +207,10 @@ IMAGE_CMD:sdcard () {
 	BOOT_SPACE_KIB="${BOOT_SPACE}"
 	OVERHEAD_KIB=16384
     ROOTFS_IMAGE="${IMGDEPLOYDIR}/${IMAGE_NAME}.squashfs"
-    if [ ! -e "${ROOTFS_IMAGE}" ]; then
-        ROOTFS_IMAGE="${IMGDEPLOYDIR}/${SDCARD_ROOTFS}"
+    if [ ! -s "${ROOTFS_IMAGE}" ]; then
+        bberror "Missing current squashfs: ${ROOTFS_IMAGE}"
+        exit 1
     fi
-    if [ ! -e "${ROOTFS_IMAGE}" ]; then
-        ROOTFS_IMAGE="${DEPLOY_DIR_IMAGE}/${IMAGE_NAME}.squashfs"
-    fi
-    if [ ! -e "${ROOTFS_IMAGE}" ]; then
-        ROOTFS_IMAGE="${DEPLOY_DIR_IMAGE}/${SDCARD_ROOTFS}"
-    fi
-	if [ ! -e "${ROOTFS_IMAGE}" ]; then
-		ROOTFS_IMAGE="$(ls -1t ${IMGDEPLOYDIR}/${IMAGE_BASENAME}-${MACHINE}.rootfs-*.squashfs 2>/dev/null | head -n 1)"
-	fi
-	if [ ! -e "${ROOTFS_IMAGE}" ]; then
-		ROOTFS_IMAGE="$(ls -1t ${DEPLOY_DIR_IMAGE}/${IMAGE_BASENAME}-${MACHINE}.rootfs-*.squashfs 2>/dev/null | head -n 1)"
-	fi
-	if [ ! -e "${ROOTFS_IMAGE}" ]; then
-		bberror "Error, no squashfs file found (expected ${SDCARD_ROOTFS} or ${IMAGE_NAME}.squashfs)"
-		exit 1
-	fi
 	ROOTFS_BYTES=$(stat -Lc%s "${ROOTFS_IMAGE}")
 	ROOTFS_KIB=$(expr ${ROOTFS_BYTES} + 1023)
 	ROOTFS_KIB=$(expr ${ROOTFS_KIB} / 1024)
