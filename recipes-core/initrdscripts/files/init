@@ -175,20 +175,23 @@ create_partitions()
 
     P4_START=$((P3_END + 1))
 
-    parted -s -- "$BOOT_DISK" unit s mkpart primary fat32 ${P2_START}s ${P2_END}s
-    parted -s -- "$BOOT_DISK" unit s mkpart primary ext2 ${P3_START}s ${P3_END}s
-    parted -s -- "$BOOT_DISK" unit s mkpart primary ext2 ${P4_START}s 100%
+    parted -s -- "$BOOT_DISK" unit s mkpart primary fat32 ${P2_START}s ${P2_END}s \
+        || fatal "Failed to create LATEST partition"
+    parted -s -- "$BOOT_DISK" unit s mkpart primary ext2 ${P3_START}s ${P3_END}s \
+        || fatal "Failed to create RWFS partition"
+    parted -s -- "$BOOT_DISK" unit s mkpart primary ext2 ${P4_START}s 100% \
+        || fatal "Failed to create LOG partition"
 
     wait_for_part 2 || fatal "Partition 2 did not appear"
     wait_for_part 3 || fatal "Partition 3 did not appear"
     wait_for_part 4 || fatal "Partition 4 did not appear"
     
     echo "Formatting LATEST"
-    mkfs.vfat "$(part_dev 2)" -n LATEST
+    mkfs.vfat "$(part_dev 2)" -n LATEST || fatal "Failed to format LATEST partition"
     echo "Formatting RWFS"
-    mkfs.ext3 -F "$(part_dev 3)" -L RWFS -q
+    mkfs.ext3 -F "$(part_dev 3)" -L RWFS -q || fatal "Failed to format RWFS partition"
     echo "Formatting LOG"
-    mkfs.ext3 -F "$(part_dev 4)" -L LOG -q
+    mkfs.ext3 -F "$(part_dev 4)" -L LOG -q || fatal "Failed to format LOG partition"
 }
 
 seed_latest_from_golden()
