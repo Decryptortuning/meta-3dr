@@ -221,11 +221,19 @@ prepare_update() {
 
 read_raw_bootloader() {
     rb_size="$1"; rb_dest="$2"
-    dd if="$BOOT_DISK" of="${rb_dest}.blocks" bs=512 skip=2 count=$(((rb_size + 511) / 512)) \
+    rb_whole=$((rb_size / 512)); rb_tail=$((rb_size % 512))
+    dd if="$BOOT_DISK" of="$rb_dest" bs=512 skip=2 count="$rb_whole" \
         || { update_error "Cannot read raw bootloader"; return 1; }
-    head -c "$rb_size" "${rb_dest}.blocks" > "$rb_dest" || { update_error "Cannot trim bootloader readback"; return 1; }
+    if [ "$rb_tail" -gt 0 ]; then
+        # Minimal BusyBox head lacks -c. Read the final sector separately and
+        # copy only its requested bytes; at most 511 byte-sized operations.
+        dd if="$BOOT_DISK" of="${rb_dest}.tail" bs=512 skip=$((rb_whole + 2)) count=1 \
+            || { update_error "Cannot read bootloader tail"; return 1; }
+        dd if="${rb_dest}.tail" of="$rb_dest" bs=1 seek=$((rb_whole * 512)) count="$rb_tail" conv=notrunc \
+            || { update_error "Cannot trim bootloader readback"; return 1; }
+        rm -f "${rb_dest}.tail" || { update_error "Cannot clear bootloader tail file"; return 1; }
+    fi
     [ "$(stat -c %s "$rb_dest")" = "$rb_size" ] || { update_error "Short bootloader readback"; return 1; }
-    rm -f "${rb_dest}.blocks"
 }
 
 flash_bootloader() {
