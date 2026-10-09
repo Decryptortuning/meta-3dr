@@ -1,2 +1,4 @@
-# Placeholder for Solo-specific busybox config on Scarthgap (busybox 1.36.1).
-# Add defconfig/customizations here when ready.
+# Maintenance needs checked, flushed writes without truncating regular-file
+# test images. Keep the upstream defconfig and add only this feature fragment.
+FILESEXTRAPATHS:prepend := "${THISDIR}/files:"
+SRC_URI:append:imx-solo = " file://maintenance-dd.cfg"

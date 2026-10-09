@@ -4,6 +4,8 @@ PATH=/sbin:/bin:/usr/sbin:/usr/bin
 
 ROOT_MOUNT="/rootfs/"
 
+. /lib/opensolo/maintenance.sh
+
 BOOT_DISK="/dev/mmcblk0"
 BOOT_PART_PREFIX="p"
 
@@ -55,7 +57,7 @@ _UDEV_DAEMON=`udev_daemon`
 
 mmc_sector_size() {
 	DISK_NAME="${BOOT_DISK##*/}"
-	SECTOR_SIZE=`cat "/sys/block/${DISK_NAME}/queue/hw_sector_size" 2>/dev/null`
+	SECTOR_SIZE=`cat "/sys/block/${DISK_NAME}/queue/logical_block_size" 2>/dev/null`
 	[ -z "$SECTOR_SIZE" ] && SECTOR_SIZE=512
 	echo "$SECTOR_SIZE"
 }
@@ -156,100 +158,62 @@ fatal() {
     exec /bin/bash
 }
 
-create_partitions()
-{
-    echo "Creating partitions"
-    P1_END=`part_end_sector 1`
-    P1_SIZE=`part_size_sectors 1`
-    if [ -z "$P1_END" ] || [ -z "$P1_SIZE" ]; then
-        fatal "Unable to determine GOLDEN partition size"
-    fi
-
-    P2_START=$((P1_END + 1))
-    P2_END=$((P2_START + P1_SIZE - 1))
-
-    P3_START=$((P2_END + 1))
-    SECTOR_SIZE=`mmc_sector_size`
-    RWFS_SECTORS=$(( (100 * 1024 * 1024 + SECTOR_SIZE - 1) / SECTOR_SIZE ))
-    P3_END=$((P3_START + RWFS_SECTORS - 1))
-
-    P4_START=$((P3_END + 1))
-
-    parted -s -- "$BOOT_DISK" unit s mkpart primary fat32 ${P2_START}s ${P2_END}s \
-        || fatal "Failed to create LATEST partition"
-    parted -s -- "$BOOT_DISK" unit s mkpart primary ext2 ${P3_START}s ${P3_END}s \
-        || fatal "Failed to create RWFS partition"
-    parted -s -- "$BOOT_DISK" unit s mkpart primary ext2 ${P4_START}s 100% \
-        || fatal "Failed to create LOG partition"
-
-    wait_for_part 2 || fatal "Partition 2 did not appear"
-    wait_for_part 3 || fatal "Partition 3 did not appear"
-    wait_for_part 4 || fatal "Partition 4 did not appear"
-    
-    echo "Formatting LATEST"
-    mkfs.vfat "$(part_dev 2)" -n LATEST || fatal "Failed to format LATEST partition"
-    echo "Formatting RWFS"
-    mkfs.ext3 -F "$(part_dev 3)" -L RWFS -q || fatal "Failed to format RWFS partition"
-    echo "Formatting LOG"
-    mkfs.ext3 -F "$(part_dev 4)" -L LOG -q || fatal "Failed to format LOG partition"
-}
-
 seed_latest_from_golden()
 {
     echo "Seeding LATEST from GOLDEN"
 
-    mkdir -p /mnt/golden /mnt/latest
+    mkdir -p "$GOLDEN_MOUNT" "$LATEST_MOUNT" || fatal "Cannot create seed mountpoints"
 
-    if ! grep -q " /mnt/golden " /proc/mounts 2>/dev/null; then
-        mount -o ro "$(part_dev 1)" /mnt/golden || fatal "Failed to mount GOLDEN"
+    if ! grep -q " ${GOLDEN_MOUNT} " /proc/mounts 2>/dev/null; then
+        mount -o ro "$(part_dev 1)" "$GOLDEN_MOUNT" || fatal "Failed to mount GOLDEN"
     fi
 
-    if ! grep -q " /mnt/latest " /proc/mounts 2>/dev/null; then
-        mount "$(part_dev 2)" /mnt/latest || fatal "Failed to mount LATEST"
+    if ! grep -q " ${LATEST_MOUNT} " /proc/mounts 2>/dev/null; then
+        mount "$(part_dev 2)" "$LATEST_MOUNT" || fatal "Failed to mount LATEST"
     fi
 
-    # Copy all boot payload files (including dotfiles) so U-Boot can boot
+    # Copy boot files, excluding the GOLDEN-only transaction record, so U-Boot can boot
     # from LATEST on the next reboot.
     #
     # NOTE: BusyBox ash does not enable pipefail by default, so a tar|tar pipeline
-    # can succeed even if the first tar fails. Use cp(1) and verify a key file.
-    find /mnt/latest -mindepth 1 -maxdepth 1 -exec rm -rf {} + 2>/dev/null || true
+    # can succeed even if the first tar fails. Copy and compare each required file.
+    find "$LATEST_MOUNT" -mindepth 1 -maxdepth 1 -exec rm -rf {} + || fatal "Cannot clear LATEST for seeding"
     # NOTE: Avoid cp -a/-p here. vfat doesn't support Unix ownership/permissions
     # and some cp implementations return non-zero when they can't preserve them,
     # which can abort seeding and leave p2 empty.
-    cp -R /mnt/golden/. /mnt/latest/ || fatal "Failed to copy GOLDEN -> LATEST"
-    [ -e /mnt/latest/uImage ] || fatal "LATEST seed failed: missing uImage"
+    for seed_file in "$GOLDEN_MOUNT"/* "$GOLDEN_MOUNT"/.[!.]* "$GOLDEN_MOUNT"/..?*; do
+        [ -e "$seed_file" ] || continue
+        case "${seed_file##*/}" in .opensolo-provisioning|.opensolo-provisioning.new) continue ;; esac
+        cp -R "$seed_file" "$LATEST_MOUNT/" || fatal "Failed to copy GOLDEN -> LATEST"
+    done
+    for seed_file in $PAYLOAD_FILES; do
+        [ -s "${LATEST_MOUNT}/$seed_file" ] || fatal "LATEST seed failed: missing $seed_file"
+        cmp -s "${GOLDEN_MOUNT}/$seed_file" "${LATEST_MOUNT}/$seed_file" || fatal "LATEST seed verification failed: $seed_file"
+    done
 
     echo "LATEST seeded:"
-    ls -la /mnt/latest 2>/dev/null || true
+    ls -la "$LATEST_MOUNT" 2>/dev/null || true
 
-    sync
-    umount /mnt/latest 2>/dev/null || true
-    umount /mnt/golden 2>/dev/null || true
+    sync || fatal "Cannot sync LATEST seed"
+    umount "$LATEST_MOUNT" || fatal "Cannot unmount LATEST seed"
+    umount "$GOLDEN_MOUNT" || fatal "Cannot unmount GOLDEN seed"
 }
 
 latest_has_boot_payload()
 {
-    mkdir -p /mnt/latest_check
-    if ! mount -o ro "$(part_dev 2)" /mnt/latest_check 2>/dev/null; then
-        rmdir /mnt/latest_check 2>/dev/null || true
+    mkdir -p "$LATEST_CHECK_MOUNT" || fatal "Cannot create LATEST check mountpoint"
+    if ! mount -o ro "$(part_dev 2)" "$LATEST_CHECK_MOUNT" 2>/dev/null; then
+        rmdir "$LATEST_CHECK_MOUNT" 2>/dev/null || true
         return 1
     fi
 
     ok=0
-    [ -e /mnt/latest_check/uImage ] || ok=1
-    ls /mnt/latest_check/*.dtb >/dev/null 2>&1 || ok=1
-    ls /mnt/latest_check/*.squashfs >/dev/null 2>&1 || ok=1
-    umount /mnt/latest_check 2>/dev/null || true
-    rmdir /mnt/latest_check 2>/dev/null || true
+    for check_file in $PAYLOAD_FILES; do
+        [ -s "$LATEST_CHECK_MOUNT/$check_file" ] || ok=1
+    done
+    umount "$LATEST_CHECK_MOUNT" || fatal "Cannot release LATEST payload check"
+    rmdir "$LATEST_CHECK_MOUNT" 2>/dev/null || true
     return $ok
-}
-
-remove_partitions()
-{
-    parted -s -- "$BOOT_DISK" rm 2
-    parted -s -- "$BOOT_DISK" rm 3
-    parted -s -- "$BOOT_DISK" rm 4
 }
 
 setScreenUpdating() {
@@ -271,43 +235,19 @@ setLedDone() {
 }
 
 checkRwfs() {
-    fsck.ext3 -y "$(part_dev 3)"
-    if [ $? -ge 4 ]; then
-        echo "Error detected on RWFS partition"
-        setLedUpdating
-        umount "$(part_dev 3)"
-        mkfs.ext3 -F "$(part_dev 3)" -L RWFS -q
-        setLedDone
-    fi
+    fsck.ext3 -p "$(part_dev 3)"
+    fsck_result=$?
+    [ "$fsck_result" -le 1 ] || fatal "RWFS needs recovery; preserving settings"
 }
 
 checkLog() {
-    fsck.ext3 -y "$(part_dev 4)"
-    if [ $? -ge 4 ]; then
-        echo "Error detected on LOG partition, repartitioning"
-        setLedUpdating
-        umount "$(part_dev 4)"
-        parted -s -- "$BOOT_DISK" rm 4
-        P3_END=`part_end_sector 3`
-        if [ -z "$P3_END" ]; then
-            fatal "Unable to determine RWFS end sector"
-        fi
-        P4_START=$((P3_END + 1))
-        parted -s -- "$BOOT_DISK" unit s mkpart primary ext2 ${P4_START}s 100%
-        wait_for_part 4 || fatal "Partition 4 did not appear"
-        mkfs.ext3 -F "$(part_dev 4)" -L LOG -q
-        setLedDone
-        # this should not trigger an "update done" screen
-        mkdir -f /mnt/log/updates
-        mount "$(part_dev 4)" /mnt/log
-        mkdir /mnt/log/updates
-        touch /mnt/log/updates/READY
-        umount /mnt/log
-    fi
+    fsck.ext3 -p "$(part_dev 4)"
+    fsck_result=$?
+    [ "$fsck_result" -le 1 ] || fatal "LOG needs recovery; preserving update state"
 }
 
 mount_and_boot() {
-    mkdir $ROOT_MOUNT
+    mkdir -p "$ROOT_MOUNT"
     mknod /dev/loop0 b 7 0 2>/dev/null
     mkdir -p /mnt/ro_rootfs
     mkdir -p /mnt/rw_rootfs
@@ -325,16 +265,17 @@ mount_and_boot() {
 
     #Mount the boot partition
     echo "Using $ROOT_DEVICE as the boot partition"
-    mount -o ro $ROOT_DEVICE /mnt/boot
+    mount -o ro "$ROOT_DEVICE" /mnt/boot || fatal "Cannot mount boot partition"
 
     #Mount the read-only squashfs partition
-    mount -o ro /mnt/boot/*.squashfs /mnt/ro_rootfs
+    mount -o ro "/mnt/boot/$PAYLOAD_ROOTFS" /mnt/ro_rootfs || fatal "Cannot mount root filesystem"
     
-    #Check the rw partition
+    #Check the rw partition after explicit reset handling
+    filesystem_matches 3 ext3 RWFS || fatal "Invalid RWFS filesystem"
     checkRwfs
 
     #mount the read-write partition
-    mount "$(part_dev 3)" /mnt/rw_rootfs
+    mount "$(part_dev 3)" /mnt/rw_rootfs || fatal "Cannot mount RWFS"
 
     #Mount the overlayfs union partition (replacing legacy AUFS)
     modprobe overlay 2>/dev/null || true
@@ -343,231 +284,129 @@ mount_and_boot() {
     mkdir -p /mnt/rw_rootfs/work
     mount -t overlay overlay \
         -o lowerdir=/mnt/ro_rootfs,upperdir=/mnt/rw_rootfs/upper,workdir=/mnt/rw_rootfs/work \
-        $ROOT_MOUNT
+        "$ROOT_MOUNT" || fatal "Cannot mount root overlay"
 
     #Move all those mount points
     mkdir -p $ROOT_MOUNT/mnt/rootfs.ro $ROOT_MOUNT/mnt/rootfs.rw $ROOT_MOUNT/mnt/boot
-    mount --move /mnt/boot $ROOT_MOUNT/mnt/boot
-    mount --move /mnt/ro_rootfs $ROOT_MOUNT/mnt/rootfs.ro
-    mount --move /mnt/rw_rootfs $ROOT_MOUNT/mnt/rootfs.rw
+    mount --move /mnt/boot $ROOT_MOUNT/mnt/boot || fatal "Cannot move boot mount"
+    mount --move /mnt/ro_rootfs $ROOT_MOUNT/mnt/rootfs.ro || fatal "Cannot move rootfs mount"
+    mount --move /mnt/rw_rootfs $ROOT_MOUNT/mnt/rootfs.rw || fatal "Cannot move RWFS mount"
 
     # boot the image
     boot_live_root
 }
 
-factory_reset() {
+resume_provisioning() {
+    provision_partitions
+    if [ "$PROVISION_MODE" != settings ]; then
+        seed_latest_from_golden
+    fi
+    if [ "$PROVISION_MODE" = reset ]; then
+        mkdir -p "$GOLDEN_MOUNT" || fatal "Cannot create GOLDEN mountpoint"
+        mount -o ro "$(part_dev 1)" "$GOLDEN_MOUNT" || fatal "Cannot mount factory bootloader"
+        flash_bootloader "$GOLDEN_MOUNT/u-boot.imx" /tmp/factory-bootloader.readback \
+            || fatal "Factory bootloader failed: $UPDATE_ERROR"
+        umount "$GOLDEN_MOUNT" || fatal "Cannot release factory bootloader"
+    fi
+    clear_provision_state
+}
 
+reboot_after_maintenance() {
+    setLedDone
+    sync || fatal "Cannot sync before reboot"
+    /sbin/shutdown -r -n now || fatal "Cannot request reboot"
+    fatal "Reboot requested; waiting for system restart"
+}
+
+factory_reset() {
     setScreenUpdating
     setLedUpdating
-    
-    #delete partions 2-4,
-    #Recreate new partitions
-    remove_partitions
-    create_partitions
-
-    #Reflash u-boot if its file exists
-    mkdir -p /mnt/golden
-    mount "$(part_dev 1)" /mnt/golden
-    if [ -e /mnt/golden/u-boot.imx ]; then
-        dd if=/mnt/golden/u-boot.imx of="$BOOT_DISK" bs=512 seek=2
-    fi
-
-    umount /mnt/golden
-    seed_latest_from_golden
-
-    setLedDone
-
-    sync
-    /sbin/shutdown -r -n now
+    begin_provisioning reset
+    resume_provisioning
+    reboot_after_maintenance
 }
 
 echo "******************** INITRD ********************"
 early_setup
+SOLO_MACHINE=$(cat /etc/opensolo-machine) || fatal "Cannot read initramfs machine"
+set_machine_payload
 read_args
 set_boot_disk_from_root
 [ -z "$CONSOLE" ] && CONSOLE="/dev/console"
 
-#if there is no LATEST partition, assume that we need to create
-#the RWFS and LOG partitions as well
-if [ ! -e "$(part_dev 2)" ]; then
-    echo "No LATEST partition, creating partition scheme"
-    #Set the LED to let the user know its formatting
+# Inspect durable state before normal partition/payload handling. An unknown
+# partial layout must never be interpreted as an empty card or formatted.
+load_provision_state
+if [ "$PROVISION_ACTIVE" = 1 ]; then
+    echo "Resuming $PROVISION_MODE transaction"
     setScreenUpdating
     setLedUpdating
-
-    create_partitions
-
-    seed_latest_from_golden
-
+    resume_provisioning
+    if [ "$PROVISION_MODE" != new ]; then reboot_after_maintenance; fi
     setLedDone
-
-else
-    #If there was a factory reset request from u-boot, handle it here
-    echo "Factory reset: " $FORCE_FACTORY_RESET
-    if [ "${FORCE_FACTORY_RESET:-0}" = "1" ]; then
-        echo "Factory reset from GPIO request"
-        factory_reset
-    fi
-
-    if ! latest_has_boot_payload; then
-        echo "LATEST missing boot payload, re-seeding from GOLDEN"
-        seed_latest_from_golden
-    fi
-
-    checkLog
-
-    echo "Checking for an update..."
-    #See if there is an update file we should be using
-    mkdir /mnt/log
-    mount "$(part_dev 4)" /mnt/log
-    if [ -e /mnt/log/updates/UPDATE ]; then
-        echo "Update requested checking for update file"
-
-        rm -f /mnt/log/updates/READY
-        sync
-        setScreenUpdating
-        setLedUpdating
-
-        for file in $(find /mnt/log/updates/ -type f -name "*.tar.gz" | sort); do
-            echo "Found file $file".
-            latestFile=$file
-        done
-
-        #Is there an update file?
-        if [ -z $latestFile ]; then
-            echo "No update tarball, restarting"
-            rm /mnt/log/updates/UPDATE
-            echo "No update tarball" >> /mnt/log/updates/UPDATEFAILED
-
-            setLedDone
-
-            sync
-            /sbin/shutdown -r -n now
-        fi
-
-        #Check the MD5sum of the update tarball
-        if [ ! -e ${latestFile}.md5 ]; then
-            echo "No MD5 file for update tarball, removing and restarting"
-            rm $latestFile
-            rm /mnt/log/updates/UPDATE
-            echo "MD5 Missing" >> /mnt/log/updates/UPDATEFAILED
-
-            setLedDone
-
-            sync
-            /sbin/shutdown -r -n now
-        fi
-
-        cd /mnt/log/updates
-        md5res=`md5sum -c ${latestFile}.md5 | awk '{print $2}'`
-        if [ "$md5res" = 'OK' ]; then
-            echo "MD5 OK, proceeding"
-        else
-            echo "MD5 failure, removing file and rebooting"
-            rm $latestFile
-            rm ${latestFile}.md5
-            rm /mnt/log/updates/UPDATE
-            echo "MD5 Failed" >> /mnt/log/updates/UPDATEFAILED
-
-            setLedDone
-
-            sync
-            /sbin/shutdown -r -n now
-        fi
-        cd ~/
-
-        #Mount the LATEST partition and overwrite everything in it
-        echo "Formatting LATEST"
-        mkfs.vfat "$(part_dev 2)" -n LATEST
-        echo "Updating LATEST with $latestFile"
-        mkdir /mnt/latest
-        mount "$(part_dev 2)" /mnt/latest
-        tar -xf $latestFile -C /mnt/latest/
-
-        #if there is a u-boot.imx, flash it to the SD card
-        if [ -e /mnt/latest/u-boot.imx ]; then
-            dd if=/mnt/latest/u-boot.imx of="$BOOT_DISK" bs=512 seek=2
-        fi
-
-        #We're all done here
-        rm /mnt/log/updates/UPDATE
-
-        # Check and see if theres a settings reset also requested
-        if [ -e /mnt/log/updates/RESETSETTINGS ]; then
-            echo "Settings reset also requested."
-            #Unmount active partitions, delete partions 3-4,
-            #Recreate new partitions 3 and 4
-            umount /mnt/log /mnt/latest
-
-            parted -s -- "$BOOT_DISK" rm 3
-            parted -s -- "$BOOT_DISK" rm 4
-            P2_END=`part_end_sector 2`
-            if [ -z "$P2_END" ]; then
-                fatal "Unable to determine LATEST end sector"
-            fi
-            P3_START=$((P2_END + 1))
-            SECTOR_SIZE=`mmc_sector_size`
-            RWFS_SECTORS=$(( (100 * 1024 * 1024 + SECTOR_SIZE - 1) / SECTOR_SIZE ))
-            P3_END=$((P3_START + RWFS_SECTORS - 1))
-            P4_START=$((P3_END + 1))
-            parted -s -- "$BOOT_DISK" unit s mkpart primary ext2 ${P3_START}s ${P3_END}s
-            parted -s -- "$BOOT_DISK" unit s mkpart primary ext2 ${P4_START}s 100%
-            wait_for_part 3 || fatal "Partition 3 did not appear"
-            wait_for_part 4 || fatal "Partition 4 did not appear"
-            mkfs.ext3 -F "$(part_dev 3)" -L RWFS -q
-            mkfs.ext3 -F "$(part_dev 4)" -L LOG -q
-        fi
-
-        echo "Done updating, restarting"
-
-        setLedDone
-
-        sync
-        /sbin/shutdown -r -n now
-
-    elif [ -e /mnt/log/updates/FACTORYRESET ]; then
-        echo "Factory reset requested."
-        umount /mnt/log
-        factory_reset
-
-    elif [ -e /mnt/log/updates/RESETSETTINGS ]; then
-        echo "Settings reset requested."
-        
-        #Set the LED to let the user know its formatting
-        setScreenUpdating
-        setLedUpdating
-        
-        #Unmount active partitions, delete partions 3-4,
-        #Recreate new partitions 3 and 4
-        umount /mnt/log
-
-        parted -s -- "$BOOT_DISK" rm 3
-        parted -s -- "$BOOT_DISK" rm 4
-        P2_END=`part_end_sector 2`
-        if [ -z "$P2_END" ]; then
-            fatal "Unable to determine LATEST end sector"
-        fi
-        P3_START=$((P2_END + 1))
-        SECTOR_SIZE=`mmc_sector_size`
-        RWFS_SECTORS=$(( (100 * 1024 * 1024 + SECTOR_SIZE - 1) / SECTOR_SIZE ))
-        P3_END=$((P3_START + RWFS_SECTORS - 1))
-        P4_START=$((P3_END + 1))
-        parted -s -- "$BOOT_DISK" unit s mkpart primary ext2 ${P3_START}s ${P3_END}s
-        parted -s -- "$BOOT_DISK" unit s mkpart primary ext2 ${P4_START}s 100%
-        wait_for_part 3 || fatal "Partition 3 did not appear"
-        wait_for_part 4 || fatal "Partition 4 did not appear"
-        mkfs.ext3 -F "$(part_dev 3)" -L RWFS -q
-        mkfs.ext3 -F "$(part_dev 4)" -L LOG -q
-
-        setLedDone
-
-        sync
-        /sbin/shutdown -r -n now
-    else
-        echo "No update available, booting."
-    fi
-    umount /mnt/log
+elif [ "${FORCE_FACTORY_RESET:-0}" = 1 ]; then
+    factory_reset
+elif ! all_data_partitions_exist; then
+    for existing_part in 2 3 4; do
+        partition_exists "$existing_part" && fatal "Unrecorded partial layout; inspect disk before repair"
+    done
+    setScreenUpdating
+    setLedUpdating
+    begin_provisioning new
+    resume_provisioning
+    setLedDone
 fi
 
-#Boot the squashfs
+# Established filesystems are never silently reformatted during normal boot.
+if [ "${FORCE_FACTORY_RESET:-0}" = 1 ]; then factory_reset; fi
+filesystem_matches 4 ext3 LOG || fatal "Invalid LOG filesystem"
+checkLog
+mkdir -p /mnt/log || fatal "Cannot create LOG mountpoint"
+mount "$(part_dev 4)" /mnt/log || fatal "Cannot mount LOG"
+mkdir -p "$UPDATE_DIR" || fatal "Cannot create update directory"
+
+if [ -e "$UPDATE_DIR/UPDATE" ]; then
+    # UPDATE survives all installation failures and is handled before generic
+    # LATEST reseeding, so interrupted updates can retry the original archive.
+    rm -f "$UPDATE_DIR/READY" || fatal "Cannot clear update notification"
+    setScreenUpdating
+    setLedUpdating
+    if ! select_update_archive || ! install_update; then
+        record_update_failure
+        fatal "Update failed; request retained: $UPDATE_ERROR"
+    fi
+    if [ -e "$UPDATE_DIR/RESETSETTINGS" ]; then
+        # LOG contains the update request. Record the verified settings reset
+        # on GOLDEN before deleting LOG; this state survives a reset failure.
+        begin_provisioning settings
+        umount /mnt/log || fatal "Cannot release LOG before settings reset"
+        resume_provisioning
+    else
+        if ! finish_update; then
+            record_update_failure
+            fatal "Update completion failed: $UPDATE_ERROR"
+        fi
+        if ! umount /mnt/log; then
+            touch "$UPDATE_DIR/UPDATE" || fatal "Cannot retain update request after LOG unmount failure"
+            UPDATE_ERROR="Cannot unmount completed update log"
+            record_update_failure
+            fatal "$UPDATE_ERROR"
+        fi
+    fi
+    reboot_after_maintenance
+elif [ -e "$UPDATE_DIR/FACTORYRESET" ]; then
+    umount /mnt/log || fatal "Cannot release LOG before factory reset"
+    factory_reset
+elif [ -e "$UPDATE_DIR/RESETSETTINGS" ]; then
+    setScreenUpdating
+    setLedUpdating
+    begin_provisioning settings
+    umount /mnt/log || fatal "Cannot release LOG before settings reset"
+    resume_provisioning
+    reboot_after_maintenance
+else
+    umount /mnt/log || fatal "Cannot release LOG"
+    filesystem_matches 2 vfat LATEST || fatal "Invalid LATEST filesystem; inspect before repair"
+    if ! latest_has_boot_payload; then seed_latest_from_golden; fi
+fi
 mount_and_boot
