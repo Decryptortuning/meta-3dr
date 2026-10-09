@@ -158,7 +158,9 @@ select_update_archive() {
     [ -n "$UPDATE_ARCHIVE" ] || { update_error "No update archive"; return 1; }
 }
 
-file_magic() { od -An -tx1 -N4 "$1" | tr -d ' \n'; }
+# BusyBox's minimal od omits -A/-t/-N. hexdump supports this bounded format
+# without enabling the global DESKTOP option for every applet.
+file_magic() { hexdump -n 4 -e '4/1 "%02x"' "$1"; }
 
 validate_payload() {
     vp_dir="$1"
