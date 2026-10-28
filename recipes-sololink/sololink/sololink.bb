@@ -22,7 +22,7 @@ DEPENDS += "gstreamer1.0"
 RDEPENDS:${PN} += "dronekit"
 RDEPENDS:${PN} += "bash"
 RDEPENDS:${PN} += "imx-vpu imx-vpuwrap gstreamer1.0 imx-gst1.0-plugin"
-RDEPENDS:${PN} += "python3-core python3-json python3-tempfile python3-pyserial"
+RDEPENDS:${PN} += "python3-core python3-json python3-tempfile python3-pyserial python3-datetime python3-fcntl python3-threading python3-syslog"
 
 # sololink ships a customized /etc/init.d/networking.
 RREPLACES:${PN} += "init-ifupdown"
@@ -79,15 +79,20 @@ do_install () {
 	ln -sf ../../usr/bin/shutdownArtoo.sh ${D}${sysconfdir}/rc0.d/S89shutdownArtoo
     
     install -m 0755 ${S}/init/golden_to_system.sh ${D}${sysconfdir}/init.d
-	ln -sf ../init.d/golden_to_system.sh ${D}${sysconfdir}/rc3.d/S100golden_to_system
+    # Validated initramfs seeding owns GOLDEN -> LATEST; legacy migration is not autostarted.
 
-	install -m 0755 ${S}/init/clock_sync ${D}${bindir}/clock_sync
+    install -m 0755 ${S}/init/clock_sync ${D}${bindir}/clock_sync
+    install -m 0755 ${S}/init/clock_sync.init ${D}${sysconfdir}/init.d/clock_sync
+    install -m 0755 ${S}/init/log_maintenance ${D}${bindir}/log_maintenance
+    install -m 0755 ${S}/net/usr/bin/sololink-ap-service ${D}${bindir}
+    install -m 0755 ${S}/net/usr/bin/sololink-lan-firewall ${D}${bindir}
+    install -m 0644 ${S}/config/logrotate-streams.conf ${D}${sysconfdir}
 
 	install -m 0755 ${S}/flightcode/video/app/app_streamer ${D}${bindir}
 	install -m 0755 ${S}/flightcode/video/vid/vidlaunch ${D}${bindir}
 	install -m 0755 ${S}/flightcode/video/hdmi/hdmiout ${D}${bindir}
 	install -m 0755 ${S}/flightcode/video/cleanLibs.sh ${D}${bindir}
-	ln -sf ../../usr/bin/cleanLibs.sh ${D}${sysconfdir}/rcS.d/S61cleanLibs
+    # No automatic deletion of legacy overlay library paths.
 
 	install -m 0755 ${S}/net/etc/init.d/netinit ${D}${sysconfdir}/init.d
 	install -m 0755 ${S}/net/etc/init.d/networking ${D}${sysconfdir}/init.d
@@ -124,12 +129,12 @@ do_install () {
 
 	install -d ${D}${sysconfdir}/profile.d
 
-	# This script sets environment variables (none are used yet)
-	echo "export SOLOLINK_CONFIG_DIR=${SOLOLINK_CONFIG_DIR}" >> ${S}/config/sololink
-	echo "alias ls='ls -aF'" >> ${S}/config/sololink
-	echo "alias ll='ls -l'" >> ${S}/config/sololink
-	echo "alias hi='history'" >> ${S}/config/sololink
-	install -m 0644 ${S}/config/sololink ${D}${sysconfdir}/profile.d
+    # Write build-specific profile content in the install tree, never mutate S.
+    install -m 0644 ${S}/config/sololink ${D}${sysconfdir}/profile.d
+    echo "export SOLOLINK_CONFIG_DIR=${SOLOLINK_CONFIG_DIR}" >> ${D}${sysconfdir}/profile.d/sololink
+    echo "alias ls='ls -aF'" >> ${D}${sysconfdir}/profile.d/sololink
+    echo "alias ll='ls -l'" >> ${D}${sysconfdir}/profile.d/sololink
+    echo "alias hi='history'" >> ${D}${sysconfdir}/profile.d/sololink
 
 	# Only the .orig file is installed; it is the "golden config" that
 	# configinit uses to create sololink.conf (and md5) on first boot

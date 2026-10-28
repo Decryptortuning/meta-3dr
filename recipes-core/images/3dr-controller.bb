@@ -3,13 +3,15 @@ include recipes-core/images/core-image-base.bb
 # created from image_types_fsl; creates additional logging partition
 inherit image_types_3dr
 
+IMAGE_FEATURES:remove = "debug-tweaks allow-empty-password empty-root-password"
+
 do_image_sdcard[depends] += "parted-native:do_populate_sysroot \
                              dosfstools-native:do_populate_sysroot \
                              mtools-native:do_populate_sysroot \
                              virtual/kernel:do_deploy"
 
-PV = "3.0.0"
-VER_NAME = "Open Solo 3.0.0"
+PV = "5.0.0"
+VER_NAME = "OpenSolo 5 development"
 BUILD_DATE = "Build Date: ${@time.strftime('%Y%m%d%H%M%S', time.gmtime())}"
 
 # Alias target name (avoid a second image recipe that would collide in deploy/).
@@ -18,7 +20,6 @@ PROVIDES += "solo_controller"
 do_rootfs[depends] += "virtual/kernel:do_bundle_initramfs"
 
 IMAGE_FEATURES += " \
-    debug-tweaks \
     package-management \
 "
 
@@ -56,7 +57,6 @@ IMAGE_INSTALL += " \
     dnsmasq \
     sololink \
     sololink-python \
-    rpm \
     util-linux \
     artoo-firmware \
     e2fsprogs-e2fsck \
@@ -86,7 +86,7 @@ update_config_files() {
     # Provide /usr/bin/python for any remaining legacy shebangs
     ln -sf python3 ${IMAGE_ROOTFS}/usr/bin/python
     #Filesystem available over USB OTG port
-    echo "g_acm_ms file=/dev/mmcblk0p4" >> ${IMAGE_ROOTFS}/etc/modules
+    # Never export the locally writable LOG block device through USB mass storage.
     #Clear out the leases file on boot
     sed -i '/test \-d \/var\/lib\/misc\/.*/a \        rm -f \/var\/lib\/misc\/dnsmasq\.leases' ${IMAGE_ROOTFS}/etc/init.d/dnsmasq
     # Mount logging partition
@@ -161,32 +161,12 @@ EOF
     # keep time monotonically increasing across power cuts).
     echo "${@time.strftime('%Y%m%d%H%M%S', time.gmtime())}" > ${IMAGE_ROOTFS}/etc/timestamp
 
-    # Periodically update /etc/timestamp while the system is up.
-    cat > ${IMAGE_ROOTFS}/etc/init.d/clock_sync <<'EOF'
-#!/bin/sh
-### BEGIN INIT INFO
-# Provides:          clock_sync
-# Required-Start:    $local_fs
-# Default-Start:     S
-# Default-Stop:
-# Short-Description: Periodically update /etc/timestamp
-### END INIT INFO
-
-case "$1" in
-    start)
-        /usr/bin/clock_sync >/dev/null 2>&1 &
-        ;;
-    stop)
-        ;;
-    *)
-        echo "Usage: clock_sync {start|stop}" >&2
-        exit 1
-        ;;
-esac
-exit 0
-EOF
-    chmod +x ${IMAGE_ROOTFS}/etc/init.d/clock_sync
+    # Managed checkpoint service is installed by sololink.
     ln -sf ../init.d/clock_sync ${IMAGE_ROOTFS}/etc/rcS.d/S50clock_sync
+    ln -sf ../init.d/clock_sync ${IMAGE_ROOTFS}/etc/rc0.d/K20clock_sync
+    ln -sf ../init.d/clock_sync ${IMAGE_ROOTFS}/etc/rc6.d/K20clock_sync
+    # A dedicated early-boot tmpfs cannot obscure retained /mnt child mounts.
+    sed -i 's#^PSPLASH_FIFO_DIR=.*#PSPLASH_FIFO_DIR=/psplash#' ${IMAGE_ROOTFS}/etc/default/rcS
 
     # -----------------------------------------------------------------------------
     # ALSA UCM
@@ -214,11 +194,14 @@ EOF
             ${IMAGE_ROOTFS}/usr/share/alsa/ucm2/conf.d/$drv/HiFi.conf
     done
 
-    #Password is TjSDBkAu
-    sed 's%^root:[^:]*:%root:I8hkLIWAASD4Q:%' \
-           < ${IMAGE_ROOTFS}/etc/shadow \
-           > ${IMAGE_ROOTFS}/etc/shadow.new;
-    mv ${IMAGE_ROOTFS}/etc/shadow.new ${IMAGE_ROOTFS}/etc/shadow ;
+    # Discarded random-password hash keeps key-only root accounts usable without
+    # shipping the legacy known password. Network password auth is disabled below.
+    sed 's%^root:[^:]*:%root:$6$XtL8jbb03yjkcp8D$2bmg/GWsJQ.L/GQ7L4dX/b5RC.UV./XHRoQHIECZr5lnhiybNDpby7s5hzJmCHmAsrNaIuaaufNSD6Wba3NBW0:%' < ${IMAGE_ROOTFS}/etc/shadow > ${IMAGE_ROOTFS}/etc/shadow.new
+    mv ${IMAGE_ROOTFS}/etc/shadow.new ${IMAGE_ROOTFS}/etc/shadow
+
+    # Private workstation keys are provisioned separately; never put them in a recipe.
+    install -d ${IMAGE_ROOTFS}/etc/ssh/sshd_config.d
+    printf '%s\n' 'PubkeyAuthentication yes' 'PasswordAuthentication no' 'KbdInteractiveAuthentication no' 'PermitRootLogin prohibit-password' > ${IMAGE_ROOTFS}/etc/ssh/sshd_config.d/00-opensolo.conf
 
     #pubkey for updater
     mkdir -p ${IMAGE_ROOTFS}/home/root/.ssh
@@ -233,6 +216,9 @@ EOF
     rm ${IMAGE_ROOTFS}/etc/syslog.conf.busybox.solo
     mv ${IMAGE_ROOTFS}/etc/syslog.conf.busybox.controller \
        ${IMAGE_ROOTFS}/etc/syslog.conf.busybox
+    install -m 0644 ${IMAGE_ROOTFS}/etc/syslog.conf.busybox ${IMAGE_ROOTFS}/etc/syslog.conf
+    echo '*.* /log/messages' >> ${IMAGE_ROOTFS}/etc/syslog.conf
+    sed -i 's/^ROTATESIZE=.*/ROTATESIZE=2048/; s/^ROTATEGENS=.*/ROTATEGENS=3/' ${IMAGE_ROOTFS}/etc/syslog-startup.conf
 
     # pick controller's logrotate-sololink.conf
     rm ${IMAGE_ROOTFS}/etc/logrotate-sololink.conf.solo
@@ -245,6 +231,10 @@ EOF
 ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCs1jMmFt8YXua73/trYpRPBmyqABEsSWGlH2qdYEMG6A/8jzgnbV2ECfYUBWQ+Q/qNjkOLV6VpR6WRN/u0bTAdAC+Zwtt3Qxhuby4gXyMPP/6BUkjgCv4ryI9E4QaFzfVHg2wYxhaEIXGfeF4yTqS0M/MpttewQl9ho6ZIe1giaFYCFayX18MBKbeWv88wfiViDvkaANdX/aClY2/YdxDXY+CXXzxcWFqG+8GCOQKfDwYtqcdAnc0DohnBjjf3VpXhNylay91gb23AVSsUaA+6eynufmkdJutbqbNn/uHTq+aidc6bDuLZKYz4ulRYgeqp6aH/7gZPdHZQPHb//Bed root@3dr_solo
 "
     echo "$MAV_DF_RSA_PUB_KEY" >>${IMAGE_ROOTFS}/home/root/.ssh/authorized_keys
+    # Legacy drone/updater identities remain usable only on the flight AP subnet.
+    sed -i 's/^ssh-/from="10.1.1.0\/24",restrict ssh-/' ${IMAGE_ROOTFS}/home/root/.ssh/authorized_keys
+    chmod 0700 ${IMAGE_ROOTFS}/home/root/.ssh
+    chmod 0600 ${IMAGE_ROOTFS}/home/root/.ssh/authorized_keys
 }
 
 ROOTFS_POSTPROCESS_COMMAND += "update_config_files"

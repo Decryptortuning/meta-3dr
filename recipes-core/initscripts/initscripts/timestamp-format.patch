@@ -1,0 +1,15 @@
+--- a/bootmisc.sh
++++ b/bootmisc.sh
+@@ -75,6 +75,12 @@
+ then
+ 	SYSTEMDATE=`date -u +%4Y%2m%2d%2H%2M%2S`
+ 	read TIMESTAMP < "$TIMESTAMP_FILE"
++    case "$TIMESTAMP" in
++        *[!0-9]*|'') TIMESTAMP=0 ;;
++        ????????????) TIMESTAMP="${TIMESTAMP}00" ;;
++        ??????????????) ;;
++        *) TIMESTAMP=0 ;;
++    esac
+ 	if [ ${TIMESTAMP} -gt $SYSTEMDATE ]; then
+ 		# format the timestamp as date expects it (2m2d2H2M4Y.2S)
+ 		TS_YR=${TIMESTAMP%??????????}

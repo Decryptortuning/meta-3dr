@@ -40,7 +40,7 @@ SRVY:3:once:survey_log
 
 TOP:345:respawn:proc_top /log/3dr-top.log
 RCTX:345:respawn:stm32
-PAIR:345:respawn:pair_server.py
+PAIR:345:respawn:/usr/bin/sololink-ap-service /usr/bin/pair_server.py
 APP:4:respawn:app_server.py
 TEMP:345:respawn:log_temp
 WIFI:4:respawn:logRCUp.sh
@@ -48,3 +48,5 @@ STRM:4:respawn:app_streamer
 HDMI:4:respawn:hdmiout
 TLM:4:respawn:telem_ctrl
 TLG:4:respawn:tlog
+
+LOGR:345:respawn:/usr/bin/log_maintenance

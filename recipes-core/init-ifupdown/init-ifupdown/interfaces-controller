@@ -20,5 +20,4 @@ iface wlan0-ap inet static
 	netmask 255.255.255.0
 	pre-up sleep 1; # workaround for race; sometimes phy0 is not yet there
 	pre-up iw phy0 set distance 1800
-	post-up iptables -t nat -A POSTROUTING -j MASQUERADE
-	post-up echo 1 > /proc/sys/net/ipv4/ip_forward
+	# AP-only control networking does not require forwarding or unscoped NAT.
