@@ -1,3 +1,11 @@
+Subject: [PATCH] Validate and migrate OpenSolo saved timestamp formats
+
+Upstream-Status: Inappropriate [OpenSolo legacy 12-digit timestamp migration]
+
+The old controller checkpoint service wrote minute-resolution values.
+Validate the numeric format and convert those values before the modern
+bootmisc seconds-resolution comparison.
+
 --- a/bootmisc.sh
 +++ b/bootmisc.sh
 @@ -75,6 +75,12 @@
