@@ -1,5 +1,5 @@
 # 3dr-solo installs the KMS plugin; NXP enables it by default for mx8.
 PACKAGECONFIG:append:imx_drone = " kms"
 
-# Keep this drone-specific plugin set out of shared SoC-architecture packages.
-PACKAGE_ARCH:imx_drone = "${MACHINE_ARCH}"
+# Use NXP dynamic package-architecture selection for this drone variant.
+MACHINE_ARCH_FILTER:append:imx_drone = " gstreamer1.0-plugins-bad"
