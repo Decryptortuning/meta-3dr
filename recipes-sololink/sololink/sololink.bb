@@ -22,7 +22,7 @@ DEPENDS += "gstreamer1.0"
 RDEPENDS:${PN} += "dronekit"
 RDEPENDS:${PN} += "bash"
 RDEPENDS:${PN} += "imx-vpu imx-vpuwrap gstreamer1.0 imx-gst1.0-plugin"
-RDEPENDS:${PN} += "python3-core"
+RDEPENDS:${PN} += "python3-core python3-json python3-tempfile python3-pyserial"
 
 # sololink ships a customized /etc/init.d/networking.
 RREPLACES:${PN} += "init-ifupdown"

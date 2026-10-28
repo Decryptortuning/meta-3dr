@@ -8,6 +8,8 @@ SRC_URI = "git://github.com/Decryptortuning/stm32loader.git;protocol=https;branc
 
 S = "${WORKDIR}/git"
 
+RDEPENDS:${PN} += "python3-core python3-pyserial"
+
 FILES:${PN} += "${bindir}/"
 
 do_install () {
