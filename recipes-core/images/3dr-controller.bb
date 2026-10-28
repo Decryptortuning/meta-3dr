@@ -10,7 +10,7 @@ do_image_sdcard[depends] += "parted-native:do_populate_sysroot \
                              mtools-native:do_populate_sysroot \
                              virtual/kernel:do_deploy"
 
-PV = "5.0.0"
+PV = "3.0.0"
 VER_NAME = "OpenSolo 5 development"
 BUILD_DATE = "Build Date: ${@time.strftime('%Y%m%d%H%M%S', time.gmtime())}"
 
@@ -198,6 +198,7 @@ EOF
     # shipping the legacy known password. Network password auth is disabled below.
     sed 's%^root:[^:]*:%root:$6$XtL8jbb03yjkcp8D$2bmg/GWsJQ.L/GQ7L4dX/b5RC.UV./XHRoQHIECZr5lnhiybNDpby7s5hzJmCHmAsrNaIuaaufNSD6Wba3NBW0:%' < ${IMAGE_ROOTFS}/etc/shadow > ${IMAGE_ROOTFS}/etc/shadow.new
     mv ${IMAGE_ROOTFS}/etc/shadow.new ${IMAGE_ROOTFS}/etc/shadow
+    chmod 0600 ${IMAGE_ROOTFS}/etc/shadow
 
     # Private workstation keys are provisioned separately; never put them in a recipe.
     install -d ${IMAGE_ROOTFS}/etc/ssh/sshd_config.d
