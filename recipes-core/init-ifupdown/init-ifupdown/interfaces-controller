@@ -12,12 +12,12 @@ iface wlan0 inet dhcp
 	wireless_essid any
 	wpa-driver nl80211 
 	wpa-conf /etc/wpa_supplicant.conf
-	pre-up sleep 1; # workaround for race; sometimes phy0 is not yet there
-	pre-up iw phy0 set distance 1800
+	pre-up sleep 1; # allow the radio interface to appear
+	pre-up iw phy "$(basename "$(readlink "/sys/class/net/$IFACE/phy80211")")" set distance 1800
 
 iface wlan0-ap inet static
 	address 10.1.1.1
 	netmask 255.255.255.0
-	pre-up sleep 1; # workaround for race; sometimes phy0 is not yet there
-	pre-up iw phy0 set distance 1800
+	pre-up sleep 1; # allow the radio interface to appear
+	pre-up iw phy "$(basename "$(readlink "/sys/class/net/$IFACE/phy80211")")" set distance 1800
 	# AP-only control networking does not require forwarding or unscoped NAT.
