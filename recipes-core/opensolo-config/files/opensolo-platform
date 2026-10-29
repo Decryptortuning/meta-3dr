@@ -1,0 +1,4 @@
+#!/bin/sh
+case "$1" in
+    start) /sbin/sysctl -p /etc/sysctl.d/90-opensolo.conf ;;
+esac

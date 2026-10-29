@@ -1,7 +1,7 @@
 SUMMARY = "shotmanager"
 HOMEPAGE = "https://github.com/Decryptortuning/shotmanager"
 
-LICENSE = "GPLv3"
+LICENSE = "Apache-2.0"
 LIC_FILES_CHKSUM = "file://LICENSE-APACHE;md5=3b83ef96387f14655fc854ddc3c6bd57"
 
 SRCREV = "${AUTOREV}"
@@ -15,13 +15,12 @@ inherit gitpkgv
 
 RDEPENDS:${PN} += "dronekit dronekit-solo"
 
-FILES:${PN} += "/"
 FILES:${PN} += "${bindir}/"
 FILES:${PN} += "${sysconfdir}/"
 
 do_compile () {
-    echo "# auto-generated `date`" > shotManager_version.py
-    echo 'VERSION = "3.0.0"' >> shotManager_version.py
+    echo "# generated from the selected recipe version" > ${B}/shotManager_version.py
+    echo 'VERSION = "3.0.0"' >> ${B}/shotManager_version.py
 }
 
 do_install () {
@@ -67,7 +66,7 @@ do_install () {
     install -m 0755 ${S}/shotFactory.py ${D}${bindir}
     install -m 0755 ${S}/shotLogger.py ${D}${bindir}
     install -m 0755 ${S}/shotManager.py ${D}${bindir}
-    install -m 0755 ${S}/shotManager_version.py ${D}${bindir}
+    install -m 0755 ${B}/shotManager_version.py ${D}${bindir}
     install -m 0755 ${S}/shotManagerConstants.py ${D}${bindir}
     install -m 0755 ${S}/shots.py ${D}${bindir}
     install -m 0755 ${S}/transect.py ${D}${bindir}

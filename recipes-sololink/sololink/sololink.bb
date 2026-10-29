@@ -1,6 +1,6 @@
 SUMMARY = "SoloLink software for RC, telemetry and video"
 
-LICENSE = "GPLv3"
+LICENSE = "Apache-2.0 & BSD-3-Clause & GPL-3.0-or-later"
 LIC_FILES_CHKSUM = "file://LICENSE-APACHE;md5=3b83ef96387f14655fc854ddc3c6bd57"
 
 SRCREV = "${AUTOREV}"
@@ -14,7 +14,7 @@ FILESEXTRAPATHS:prepend := "${THISDIR}/files:"
 
 inherit pkgconfig gitpkgv
 
-INHIBIT_PACKAGE_DEBUG_SPLIT = "1"
+PACKAGE_ARCH = "${MACHINE_ARCH}"
 
 DEPENDS += "libnl"
 DEPENDS += "gstreamer1.0"
@@ -25,16 +25,22 @@ RDEPENDS:${PN} += "imx-vpu imx-vpuwrap gstreamer1.0 imx-gst1.0-plugin"
 RDEPENDS:${PN} += "python3-core python3-json python3-io python3-pyserial python3-datetime python3-fcntl python3-threading python3-syslog"
 
 # sololink ships a customized /etc/init.d/networking.
-RREPLACES:${PN} += "init-ifupdown"
+RDEPENDS:${PN}-config = "init-ifupdown busybox-syslog"
 
 # These need to match the environment variables in Sololink/config/sololink
 # All should come from the machine configuration meta-3dr/conf/machine/*
 soloconfdir = "${SOLOLINK_CONFIG_DIR}"
 
-FILES:${PN} += "${bindir}/"
-FILES:${PN} += "${libdir}/"
-FILES:${PN} += "${sysconfdir}/"
-FILES:${PN} += "/"
+# Config/init and drone LED helpers have separate ownership and licenses.
+PACKAGES =+ "${PN}-config ${PN}-led"
+FILES:${PN}-config = "${sysconfdir}"
+FILES:${PN}-led = "${bindir}/led_control.py ${bindir}/SoloLED.py"
+LICENSE:${PN}-led = "GPL-3.0-or-later"
+FILES:${PN} = "${bindir}/* ${sbindir}/opensolo-log-provision"
+RDEPENDS:${PN} += "${PN}-config ${PN}-led"
+RDEPENDS:${PN}-led = "python3-core dronekit"
+OPENSOLO_ROLE:imx_controller = "controller"
+OPENSOLO_ROLE:imx_drone = "solo"
 
 # This is for the builds in flightcode. Building with the --sysroot flag
 # causes the preprocessor to find the correct include files if they are on
@@ -47,7 +53,6 @@ do_compile:prepend () {
 
 do_install () {
 	install -d ${D}${bindir}
-	install -d ${D}${libdir}
 	install -d ${D}/
 
 	install -d ${D}${sysconfdir}
@@ -69,7 +74,7 @@ do_install () {
     install -m 0755 ${S}/flightcode/python/led_control.py ${D}${bindir}
     install -m 0755 ${S}/flightcode/python/SoloLED.py ${D}${bindir}
 	install -m 0755 ${S}/init/pixhawk ${D}${sysconfdir}/init.d
-	# link rcS.d/S60pixhawk -> ../init.d/pixhawk created in image recipe
+	# link rcS.d/S60pixhawk -> ../init.d/pixhawk created by the machine override below
 
 	install -m 0755 ${S}/STM32Loader/updateArtoo.sh ${D}${bindir}
 	install -m 0755 ${S}/STM32Loader/checkArtooAndUpdate.py ${D}${bindir}
@@ -167,25 +172,13 @@ do_install () {
 	install -m 0755 ${S}/flightcode/proc_top/proc_top ${D}${bindir}
 	install -m 0755 ${S}/flightcode/thermal/log_temp ${D}${bindir}
 
-	# busybox's syslogd configuration
-	# Note: By default, syslogd is started in runlevel 2. We need it in as a
-	# startup item since we'd like to log from some of our other startup items.
-	# The old links are deleted in the image recipe (this is not the correct way
-	# to change when it starts).
-	ln -sf ../init.d/syslog ${D}${sysconfdir}/rcS.d/S40syslog
-	# One of these will be renamed at image build time to syslog.conf.busybox,
-	# and the other will be deleted.
-	install -m 0644 ${S}/config/syslog.conf.busybox.solo ${D}${sysconfdir}
-	install -m 0644 ${S}/config/syslog.conf.busybox.controller ${D}${sysconfdir}
+	# busybox-syslog owns its configuration and early service registration.
 
 	# rotate 3dr logs each boot
 	install -m 0755 ${S}/init/3dr_rotate ${D}${sysconfdir}/init.d
 	ln -sf ../init.d/3dr_rotate ${D}${sysconfdir}/rcS.d/S433dr_rotate
 
-	# One of these will be renamed at image build time to logrotate-sololink.conf,
-	# and the other will be deleted.
-	install -m 0644 ${S}/config/logrotate-sololink.conf.solo ${D}${sysconfdir}
-	install -m 0644 ${S}/config/logrotate-sololink.conf.controller ${D}${sysconfdir}
+	# Machine-specific log rotation is installed below.
 
 	# Inject updater screen messages
 	install -m 0755 ${S}/flightcode/stm32/updater_msg.py ${D}${bindir}
@@ -262,5 +255,34 @@ do_install () {
 	ln -sf /usr/bin/gimbal/setup.py                   ${D}${bindir}/gimbal_setup
 	install -m 0755 gimbal/loadGimbal.py              ${D}${bindir}
 	install -m 0755 ${S}/init/updateGimbal.sh         ${D}${sysconfdir}/init.d
-	# link rcS.d/S62updateGimbal.sh -> ../init.d/updateGimbal.sh created in image recipe
+	# link rcS.d/S62updateGimbal.sh -> ../init.d/updateGimbal.sh created by the machine override below
+}
+
+
+do_install:append:imx_controller() {
+    sed -i 's/^ApEnable=.*/ApEnable=True/; s/^StationEnable=.*/StationEnable=False/' ${D}${soloconfdir}/sololink.orig
+    printf '%s\n' '#!/bin/sh' '/usr/bin/checkArtooAndUpdate.py' > ${D}${sysconfdir}/init.d/updateArtoo
+    chmod 0755 ${D}${sysconfdir}/init.d/updateArtoo
+    ln -sf ../init.d/updateArtoo ${D}${sysconfdir}/rcS.d/S60updateArtoo.sh
+}
+do_install:append:imx_drone() {
+    sed -i 's/^ApEnable=.*/ApEnable=False/; s/^StationEnable=.*/StationEnable=True/' ${D}${soloconfdir}/sololink.orig
+    ln -sf ../init.d/pixhawk ${D}${sysconfdir}/rcS.d/S60pixhawk
+    ln -sf ../init.d/updateGimbal.sh ${D}${sysconfdir}/rcS.d/S62updateGimbal.sh
+    rm -f ${D}${sysconfdir}/rc0.d/S89shutdownArtoo
+}
+LIC_FILES_CHKSUM += "file://px_uploader/px_uploader.py;beginline=1;endline=31;md5=69c227a31149bb835035b0577d6c66b8"
+LIC_FILES_CHKSUM += "file://flightcode/python/led_control.py;beginline=1;endline=17;md5=14fe08d36a40db90a37e069553056ffc"
+LIC_FILES_CHKSUM += "file://flightcode/python/SoloLED.py;beginline=1;endline=16;md5=1ef0248f03467ea1b9163d08366ccb73"
+
+RDEPENDS:${PN} += "python3-subprocess python3-json python3-logging python3-misc openssh-keygen openssh-ssh rsync"
+
+
+do_install:append() {
+    install -m 0644 ${S}/config/logrotate-sololink.conf.${OPENSOLO_ROLE} ${D}${sysconfdir}/logrotate-sololink.conf
+    ln -sf ../init.d/clock_sync ${D}${sysconfdir}/rcS.d/S50clock_sync
+    ln -sf ../init.d/clock_sync ${D}${sysconfdir}/rc0.d/K20clock_sync
+    ln -sf ../init.d/clock_sync ${D}${sysconfdir}/rc6.d/K20clock_sync
+    install -d ${D}${sbindir}
+    install -m 0755 ${S}/flightcode/dflog/opensolo-log-provision ${D}${sbindir}/opensolo-log-provision
 }

@@ -4,8 +4,16 @@ SRC_URI:append:imx_controller = " file://opensolo-controller.conf"
 PACKAGE_ARCH:imx_controller = "${MACHINE_ARCH}"
 CONFFILES:${PN}:append:imx_controller = " ${sysconfdir}/dnsmasq.d/opensolo-controller.conf"
 
+
+
+
+
+
+
 do_install:append:imx_controller() {
     install -d ${D}${sysconfdir}/dnsmasq.d
     install -m 0644 ${WORKDIR}/opensolo-controller.conf \
         ${D}${sysconfdir}/dnsmasq.d/opensolo-controller.conf
+    sed -i '/case "$1" in/i\if [ "$1" = start ] && [ -f /etc/sololink.conf ] && ! grep -iq "^ApEnable[[:space:]]*=[[:space:]]*True[[:space:]]*$" /etc/sololink.conf; then echo "AP DHCP disabled by profile"; exit 0; fi' ${D}${sysconfdir}/init.d/dnsmasq
+    sed -i '/test \-d \/var\/lib\/misc\/.*/a\        rm -f /var/lib/misc/dnsmasq.leases' ${D}${sysconfdir}/init.d/dnsmasq
 }
