@@ -12,6 +12,7 @@ SRC_URI += "file://0001-mavcrc-python3-frombytes.patch"
 SRC_URI += "file://0002-disable-mavnative-extension.patch"
 SRC_URI += "file://0003-dronekit-legacy-transport-api.patch"
 SRC_URI += "file://0004-python3-char-array-contract.patch"
+SRC_URI += "file://0005-python3-crc-extra-byte.patch"
 
 PV = "1.1.56"
 PKGV = "${PV}+git${GITPKGV}"
