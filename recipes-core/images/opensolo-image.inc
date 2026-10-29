@@ -6,6 +6,9 @@ inherit image_types_3dr extrausers
 EXTRA_USERS_PARAMS:append = " usermod -p '*' root;"
 PV = "3.0.0"
 OPENSOLO_BUILD_ID ?= "${REPRODUCIBLE_TIMESTAMP_ROOTFS}"
+# Reused squashfs and independently rerun SD tasks must address the same file.
+# Bind filenames to source/profile identity instead of the invocation's DATETIME.
+IMAGE_VERSION_SUFFIX = "-${OPENSOLO_BUILD_ID}-${OPENSOLO_BUILD_PROFILE}"
 VER_NAME = "OpenSolo 5 ${OPENSOLO_BUILD_PROFILE}"
 IMAGE_FEATURES:remove = "debug-tweaks allow-empty-password empty-root-password"
 IMAGE_FEATURES += "package-management ssh-server-openssh"
@@ -17,4 +20,6 @@ do_image_sdcard[depends] += "parted-native:do_populate_sysroot dosfstools-native
 opensolo_image_identity() {
     printf '%s\n' '${PV}' '${IMAGE_BASENAME}-${MACHINE}-${OPENSOLO_BUILD_ID}' '${VER_NAME}' 'Build Date: ${@time.strftime("%Y%m%d%H%M%S", time.gmtime(int(d.getVar("REPRODUCIBLE_TIMESTAMP_ROOTFS"))))}' > ${IMAGE_ROOTFS}/VERSION
 }
-ROOTFS_POSTPROCESS_COMMAND += "opensolo_image_identity; "
+# Scarthgap hashes whitespace-separated function names; a trailing semicolon
+# runs at runtime but hides this function and its identity inputs from vardeps.
+ROOTFS_POSTPROCESS_COMMAND += "opensolo_image_identity"
