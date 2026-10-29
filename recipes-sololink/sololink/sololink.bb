@@ -275,7 +275,7 @@ LIC_FILES_CHKSUM += "file://px_uploader/px_uploader.py;beginline=1;endline=31;md
 LIC_FILES_CHKSUM += "file://flightcode/python/led_control.py;beginline=1;endline=17;md5=14fe08d36a40db90a37e069553056ffc"
 LIC_FILES_CHKSUM += "file://flightcode/python/SoloLED.py;beginline=1;endline=16;md5=1ef0248f03467ea1b9163d08366ccb73"
 
-RDEPENDS:${PN} += "python3-subprocess python3-json python3-logging python3-misc openssh-keygen openssh-ssh rsync"
+RDEPENDS:${PN} += "python3-core python3-io python3-shell python3-json python3-logging python3-netclient openssh-keygen openssh-ssh rsync"
 
 
 do_install:append() {
