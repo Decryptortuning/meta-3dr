@@ -7,8 +7,8 @@ uses the explicit Solo dialect shared with the C bridge.
 
 --- a/dronekit/__init__.py
 +++ b/dronekit/__init__.py
-@@ -51,7 +51,7 @@
- from past.builtins import basestring
+@@ -50,7 +50,7 @@
+ basestring = (str, bytes)  # Python 3 equivalent; no undeclared future runtime.
  
  from pymavlink import mavutil, mavwp
 -from pymavlink.dialects.v10 import ardupilotmega
@@ -16,7 +16,7 @@ uses the explicit Solo dialect shared with the C bridge.
  
  from dronekit.util import ErrprinterHandler
  
-@@ -1232,11 +1232,11 @@
+@@ -1231,11 +1231,11 @@
          @self.on_message('EKF_STATUS_REPORT')
          def listener(self, name, m):
              # boolean: EKF's horizontal position (absolute) estimate is good
