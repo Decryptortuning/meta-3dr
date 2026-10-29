@@ -12,7 +12,10 @@ do_configure:append:imx_controller() {
 }
 
 do_install:append:imx-solo() {
-    mv ${D}${sysconfdir}/wpa_supplicant.conf ${D}${sysconfdir}/wpa_supplicant.orig
+    # Core installs conf-sane as runtime config; our conf is otherwise docs only.
+    # Select the owned secret-free enrollment template explicitly.
+    install -m 0600 ${WORKDIR}/wpa_supplicant.conf ${D}${sysconfdir}/wpa_supplicant.orig
+    rm -f ${D}${sysconfdir}/wpa_supplicant.conf
 }
 FILES:${PN}:append:imx-solo = " ${sysconfdir}/wpa_supplicant.orig"
 CONFFILES:${PN}:remove:imx-solo = "${sysconfdir}/wpa_supplicant.conf"
