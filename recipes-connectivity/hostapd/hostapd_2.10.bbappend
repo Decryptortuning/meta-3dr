@@ -1,4 +1,4 @@
-FILESEXTRAPATHS:prepend := "${THISDIR}/hostap-daemon-2.4:"
+FILESEXTRAPATHS:prepend := "${THISDIR}/files:"
 
 # Replace the generic hostapd init script/config with the Solo/Artoo versions.
 SRC_URI:append = " file://hostapd.conf"
@@ -14,3 +14,6 @@ FILES:${PN}:append:imx-solo = " ${sysconfdir}/hostapd.orig"
 CONFFILES:${PN}:remove:imx-solo = "${sysconfdir}/hostapd.conf"
 
 PACKAGE_ARCH:imx-solo = "${MACHINE_ARCH}"
+
+# Startup validates private provisioned configuration before launching AP.
+RDEPENDS:${PN}:append:imx-solo = " sololink-config"

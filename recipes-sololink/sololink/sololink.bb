@@ -3,8 +3,8 @@ SUMMARY = "SoloLink software for RC, telemetry and video"
 LICENSE = "GPLv3"
 LIC_FILES_CHKSUM = "file://LICENSE-APACHE;md5=3b83ef96387f14655fc854ddc3c6bd57"
 
-SRCREV = "${AUTOREV}"
-SRC_URI = "git://github.com/Decryptortuning/sololink.git;protocol=https;branch=PORT"
+SRCREV = "90eddcc248eb496b7d5d124b63f2f1fc2f77697b"
+SRC_URI = "git://github.com/Decryptortuning/sololink.git;protocol=https;branch=codex/scarthgap-maintenance-a"
 
 PV = "0.0.0"
 PKGV = "${PV}+git${GITPKGV}"
@@ -25,7 +25,7 @@ RDEPENDS:${PN} += "imx-vpu imx-vpuwrap gstreamer1.0 imx-gst1.0-plugin"
 RDEPENDS:${PN} += "python3-core python3-json python3-io python3-pyserial python3-datetime python3-fcntl python3-threading python3-syslog"
 
 # sololink ships a customized /etc/init.d/networking.
-RDEPENDS:${PN}-config = "init-ifupdown busybox-syslog bash"
+RDEPENDS:${PN}-config = "init-ifupdown busybox-syslog bash python3-core python3-json python3-io python3-crypt python3-shell"
 
 # These need to match the environment variables in Sololink/config/sololink
 # All should come from the machine configuration meta-3dr/conf/machine/*
@@ -33,7 +33,7 @@ soloconfdir = "${SOLOLINK_CONFIG_DIR}"
 
 # Config/init and drone LED helpers have separate package ownership.
 PACKAGES =+ "${PN}-config ${PN}-led"
-FILES:${PN}-config = "${sysconfdir}"
+FILES:${PN}-config = "${bindir}/opensolo_wifi.py ${sysconfdir}/init.d ${sysconfdir}/rcS.d ${sysconfdir}/rc0.d ${sysconfdir}/rc3.d ${sysconfdir}/rc6.d ${sysconfdir}/profile.d/sololink ${soloconfdir}/sololink.orig ${sysconfdir}/logrotate-streams.conf ${sysconfdir}/logrotate-sololink.conf"
 FILES:${PN}-led = "${bindir}/led_control.py ${bindir}/SoloLED.py"
 FILES:${PN} = "${bindir}/* ${sbindir}/opensolo-log-provision"
 RDEPENDS:${PN} += "${PN}-config ${PN}-led"
@@ -157,6 +157,7 @@ do_install () {
 	ln -sf ../init.d/startwd ${D}${sysconfdir}/rc6.d/S80startwd
 
 	install -m 0755 ${S}/config/sololink_config ${D}${bindir}
+    install -m 0755 ${S}/config/opensolo_wifi.py ${D}${bindir}
 
 	install -m 0755 ${S}/wifi/wifistats ${D}${bindir}
 	install -m 0755 ${S}/wifi/survey_dump ${D}${bindir}

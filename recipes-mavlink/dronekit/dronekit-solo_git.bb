@@ -3,9 +3,10 @@ HOMEPAGE = "https://github.com/Decryptortuning/dronekit-python-solo"
 
 LICENSE = "GPLv3"
 LIC_FILES_CHKSUM = "file://requirements.txt;md5=b6106de10adcc12b60d3cf95b9017b7f"
-PV = "1.2.0"
+# Match setup.py at the pinned fork commit; this is not an upstream replacement.
+PV = "1.3.0"
 
-SRCREV = "${AUTOREV}"
+SRCREV = "5d53ef729ceb8430e88e447cfc4f2599b373bfea"
 SRC_URI = "git://github.com/Decryptortuning/dronekit-python-solo.git;protocol=https;branch=PORT"
 
 S = "${WORKDIR}/git"

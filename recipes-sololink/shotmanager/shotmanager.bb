@@ -4,7 +4,7 @@ HOMEPAGE = "https://github.com/Decryptortuning/shotmanager"
 LICENSE = "GPLv3"
 LIC_FILES_CHKSUM = "file://LICENSE-APACHE;md5=3b83ef96387f14655fc854ddc3c6bd57"
 
-SRCREV = "${AUTOREV}"
+SRCREV = "fc9fd5bdfb73ccf5968817f50fbbde054ba0da39"
 SRC_URI = "git://github.com/Decryptortuning/shotmanager.git;protocol=https;branch=PORT"
 
 PV = "3.0.0"

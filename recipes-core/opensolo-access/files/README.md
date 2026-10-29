@@ -78,7 +78,7 @@ the next iteration. Source logs are bounded to the most recent 50 numeric
 regular `.BIN` files. Symlink inputs are excluded. A temporary same-filesystem
 hardlink snapshot adds ten RECENT names as **regular files**, preserving app
 read semantics without exposing symlinks to the receiver. Crash-left private
-snapshot directories are removed on sender startup. Active logs may grow while
+snapshot directories are removed on each validated cycle. Active logs may grow while
 transferring; later iterations resume/update them (`--partial`, `--size-only`).
 
 The sender authenticates as `sololog@10.1.1.1:.`, with an explicit identity,
@@ -123,3 +123,21 @@ sololog to verify the effective key-only policy/forced-command split. Verify LOG
 mount startup, directory ownership and actual paired-device transfer during the
 separately authorized hardware acceptance stage. Source/offline checks do not
 establish target OpenSSH/PAM runtime or Wi-Fi acceptance.
+
+## Mounted source lifecycle
+
+Drone DSYN independently supervises the transfer process; DFL supervises the logger.
+Controller LOGR runs log_maintenance, not the receiver. Receiver path setup is SysV
+opensolo-log-receiver at priority18 in runlevels2–5; sshd ForceCommand runs rrsync.
+rcS/mountall uses fstab `/dev/mmcblk0p4 /log auto defaults 0 2`; auto is the
+filesystem type. Before initialization, pruning, RECENT and transfer, the sender
+requires that block device mounted as the whole writable ext3/ext4 filesystem.
+Mount-ID/device rechecks plus open directory fd binding prevent a later unmount
+from selecting an empty overlay tree. Symlink LOG/dataflash paths fail closed.
+Unavailability stays in the ten-second retry loop; no additional supervisor exists.
+The valid empty mounted filesystem still mirrors deletion intentionally.
+
+Wi-Fi enrollment is separately provisioned by /usr/bin/opensolo_wifi.py, with
+paired controller/drone roots and a private operator recovery record. No SSH
+key or trust change substitutes for Wi-Fi configuration. See the central
+scarthgap-maintenance-a-20261028.md runbook before preparing fresh spare media.
