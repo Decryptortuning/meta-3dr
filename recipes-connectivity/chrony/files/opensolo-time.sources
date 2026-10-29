@@ -1,0 +1,4 @@
+# Standard OpenEmbedded pool; replace with an explicitly administered site
+# server when deploying. OpenWrt's NTP client does not imply an NTP server.
+# Plain NTP is not cryptographically authenticated; no NTS claim is made.
+pool 0.openembedded.pool.ntp.org iburst maxsources 3

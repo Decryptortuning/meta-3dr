@@ -3,8 +3,8 @@ SUMMARY = "SoloLink software for RC, telemetry and video"
 LICENSE = "GPLv3"
 LIC_FILES_CHKSUM = "file://LICENSE-APACHE;md5=3b83ef96387f14655fc854ddc3c6bd57"
 
-SRCREV = "1cd50aa3707d37d7ce8c34e5f85fdfbd08c9770a"
-SRC_URI = "git://github.com/Decryptortuning/sololink.git;protocol=https;branch=codex/mavlink-modernization"
+SRCREV = "ed88f8c97ba84aefca178e0b3aeccca9d45950d2"
+SRC_URI = "git://github.com/Decryptortuning/sololink.git;protocol=https;branch=codex/controller-linux-maintenance"
 
 PV = "0.0.0"
 PKGV = "${PV}+git${GITPKGV}"
@@ -33,7 +33,7 @@ soloconfdir = "${SOLOLINK_CONFIG_DIR}"
 
 # Config/init and drone LED helpers have separate package ownership.
 PACKAGES =+ "${PN}-config ${PN}-led"
-FILES:${PN}-config = "${bindir}/opensolo_wifi.py ${sysconfdir}/init.d ${sysconfdir}/rcS.d ${sysconfdir}/rc0.d ${sysconfdir}/rc3.d ${sysconfdir}/rc6.d ${sysconfdir}/profile.d/sololink ${soloconfdir}/sololink.orig ${sysconfdir}/logrotate-streams.conf ${sysconfdir}/logrotate-sololink.conf"
+FILES:${PN}-config = "${bindir}/opensolo_wifi.py ${sysconfdir}/init.d ${sysconfdir}/rcS.d ${sysconfdir}/rc0.d ${sysconfdir}/rc3.d ${sysconfdir}/rc6.d ${sysconfdir}/profile.d/sololink ${soloconfdir}/sololink.orig ${sysconfdir}/logrotate-streams.conf"
 FILES:${PN}-led = "${bindir}/led_control.py ${bindir}/SoloLED.py"
 FILES:${PN} = "${bindir}/* ${sbindir}/opensolo-log-provision"
 RDEPENDS:${PN} += "${PN}-config ${PN}-led"
@@ -276,7 +276,6 @@ RDEPENDS:${PN} += "python3-core python3-io python3-shell python3-json python3-lo
 
 
 do_install:append() {
-    install -m 0644 ${S}/config/logrotate-sololink.conf.${OPENSOLO_ROLE} ${D}${sysconfdir}/logrotate-sololink.conf
     ln -sf ../init.d/clock_sync ${D}${sysconfdir}/rcS.d/S50clock_sync
     ln -sf ../init.d/clock_sync ${D}${sysconfdir}/rc0.d/K20clock_sync
     ln -sf ../init.d/clock_sync ${D}${sysconfdir}/rc6.d/K20clock_sync
