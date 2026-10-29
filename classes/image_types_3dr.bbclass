@@ -7,7 +7,7 @@ BOOT_SPACE = "90000"
 IMAGE_ROOTFS_ALIGNMENT = "4096"
 SDCARD = "${IMGDEPLOYDIR}/${IMAGE_NAME}.sdcard"
 OPENSOLO_BUILD_ID ?= "${REPRODUCIBLE_TIMESTAMP_ROOTFS}"
-OPENSOLO_VOLUME_SERIAL = "${@__import__('hashlib').sha256((d.getVar('OPENSOLO_BUILD_ID') + ':' + d.getVar('MACHINE')).encode()).hexdigest()[:8]}"
+OPENSOLO_VOLUME_SERIAL = "${@__import__('hashlib').sha256((d.getVar('OPENSOLO_BUILD_ID') + ':' + d.getVar('MACHINE') + ':' + d.getVar('OPENSOLO_BUILD_PROFILE')).encode()).hexdigest()[:8]}"
 
 do_image_sdcard[depends] += "parted-native:do_populate_sysroot dosfstools-native:do_populate_sysroot mtools-native:do_populate_sysroot python3-native:do_populate_sysroot virtual/kernel:do_deploy u-boot-imx:do_deploy ${PN}:do_image_squashfs"
 

@@ -1,3 +1,10 @@
+# OpenSolo active meta-3dr layer
+
+Current build/evidence authority: /home/jresp/solo/workspace/docs/README.md.
+The integration lock owns exact repository and compiled recipe revisions.
+Vendor u-boot-imx checkout inventory differs from the compiled u-boot-imx recipe
+pin; do not overwrite one to conceal the distinction.
+
 WARNING - WORK IN PROGRESS
 
 ```

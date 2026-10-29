@@ -9,7 +9,7 @@ SRC_URI = " \
     file://logrotate-wtmp.conf \
     "
 
-FILES:${PN} = "/"
+FILES:${PN} = "${sysconfdir}/init.d/wtmp_rotate ${sysconfdir}/rcS.d/S42wtmp_rotate ${sysconfdir}/logrotate-wtmp.conf"
 
 do_install() {
     install -d ${D}${sysconfdir}/init.d
