@@ -10,6 +10,8 @@ SRCREV = "3887c3f7b491b41b02a6061dfd4a1f8f54162da7"
 SRC_URI = "git://github.com/Decryptortuning/mavlink-solo.git;protocol=https;branch=PORT"
 SRC_URI += "file://0001-mavcrc-python3-frombytes.patch"
 SRC_URI += "file://0002-disable-mavnative-extension.patch"
+SRC_URI += "file://0003-dronekit-legacy-transport-api.patch"
+SRC_URI += "file://0004-python3-char-array-contract.patch"
 
 PV = "1.1.56"
 PKGV = "${PV}+git${GITPKGV}"

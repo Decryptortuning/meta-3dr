@@ -1,0 +1,60 @@
+Subject: [PATCH] generator: retain raw char-array bytes behind Python 3 text fields
+
+Upstream-Status: Inappropriate [Solo Python 3 legacy-dialect port]
+
+The legacy decoder leaves PARAM_VALUE.param_id as padded bytes, but the owned
+DroneKit public parameter map uses text keys. Generate text properties for char
+arrays, backed by exact raw bytes for packing. UTF-8 with surrogateescape keeps
+non-ASCII bytes reversible. Embedded NUL tails remain intact in raw forwarding;
+text getters stop at the first NUL. Explicit assignment updates the raw value.
+Do not change message definitions, numeric arrays, field order, lengths or CRCs.
+
+--- a/generator/mavgen_python.py
++++ b/generator/mavgen_python.py
+@@ -258,9 +258,28 @@
+                 if (field.type != "char" and field.array_length > 1):
+                         for i in range(field.array_length):
+                                 outf.write(", self.{0:s}[{1:d}]".format(field.name,i))
++                elif field.type == "char" and field.array_length:
++                        outf.write(", self._{0:s}_raw".format(field.name))
+                 else:
+                         outf.write(", self.{0:s}".format(field.name))
+         outf.write("))\n")
++        # Expose NUL-terminated text to Python 3 consumers while preserving the
++        # complete raw field for byte-identical forwarding, including NUL tails.
++        for field in m.fields:
++                if field.type == "char" and field.array_length:
++                        outf.write("""
++        @property
++        def {name}(self):
++                return self._{name}_raw.split(b'\\x00', 1)[0].decode('utf-8', 'surrogateescape')
++
++        @{name}.setter
++        def {name}(self, value):
++                if isinstance(value, str):
++                        value = value.encode('utf-8', 'surrogateescape')
++                elif not isinstance(value, (bytes, bytearray)):
++                        raise TypeError('MAVLink char array requires text or bytes')
++                self._{name}_raw = bytes(value)
++""".format(name=field.name))
+ 
+ 
+ def native_mavfmt(field):
+@@ -475,7 +494,7 @@
+                     try:
+                         m = self.decode(mbuf)
+                     except MAVError as reason:
+-                        m = MAVLink_bad_data(mbuf, reason.message)
++                        m = MAVLink_bad_data(mbuf, str(reason))
+                         self.total_receive_errors += 1
+                 else:
+                     m = self.decode(mbuf)
+@@ -551,7 +570,7 @@
+                             L = len_map[order]
+                             tip = sum(len_map[:order])
+                             field = t[tip]
+-                            if L == 1 or isinstance(field, str):
++                            if L == 1 or isinstance(field, (str, bytes)):
+                                 tlist.append(field)
+                             else:
+                                 tlist.append(t[tip:(tip + L)])

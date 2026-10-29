@@ -4,6 +4,7 @@ Upstream-Status: Inappropriate [OpenSolo Python 3 port]
 
 Keep the existing parameter, heartbeat and wait deadlines unchanged. Python 3.12
 provides the same monotonic clock contract; remove obsolete install requirements.
+Replace the undeclared Python-2 future basestring shim with its Python-3 types.
 
 --- a/dronekit/__init__.py
 +++ b/dronekit/__init__.py
@@ -12,7 +13,8 @@ provides the same monotonic clock contract; remove obsolete install requirements
  import time
  
 -import monotonic
- from past.builtins import basestring
+-from past.builtins import basestring
++basestring = (str, bytes)  # Python 3 equivalent; no undeclared future runtime.
  
  from pymavlink import mavutil, mavwp
 @@ -1329,7 +1328,7 @@
