@@ -13,11 +13,28 @@ Package ownership:
   login stays available once provisioned. Console password login is disabled.
 * `opensolo-log-receiver`: controller-only `sololog` account, root-owned
   `/var/lib/sololog` home, forced receiver, init directory ownership.
-* `opensolo-log-sender`: drone-only init service; `sololink` installs the Python
-  producer in `/usr/bin` and provision helper in `/usr/sbin`.
+* `sololink`: installs the Python producer in `/usr/bin` and provision helper
+  in `/usr/sbin`. The drone inittab `DSYN:4:respawn` entry is the sole producer
+  lifecycle owner, alongside `DFL:4:respawn` for the dataflash logger. No second
+  init service starts the producer.
 * `rsync-rrsync`: exact upstream `support/rrsync` from the selected rsync source.
   No custom remote-command whitelist. `openssh` append installs a tail include
   after its global directives so the receiver Match cannot corrupt their scope.
+
+## Fresh-media cutover gate
+
+This source wave produces local images for fresh/spare media with a **fresh
+RWFS overlay**. Before hardware acceptance, explicitly provision each device's
+own identity, the peer trust relationship and an operator public key. Private
+operator keys remain outside the image and are never copied by this workflow.
+
+A retained RWFS overlay can shadow the new `/etc/ssh/sshd_config`, bypass its
+includes, retain old root authorized_keys and retain formerly shared secrets.
+Installing the new rootfs alone does **not** revoke that retained state. Reusing
+an existing overlay requires inspection and reconciliation under a separately
+authorized coordinated cutover before declaring the access policy effective.
+No boot migration, automatic key deletion or forced overlay wipe is performed.
+Fresh-rootfs validation does not establish the policy of an existing device.
 
 ## Offline provisioning
 
@@ -49,7 +66,7 @@ it never reads or copies the operator private key. These commands require root.
 Re-pair explicitly after resetting/replacing a device identity. Interrupted
 pairing can leave transfer unavailable, never substitute another trusted host.
 
-A fresh unpaired drone still maintains `/log/RECENT*.BIN` links. It reports
+In runlevel 4, an unpaired drone still maintains `/log/RECENT*.BIN` links. It reports
 `controller log transfer unavailable` to syslog and retries every ten seconds;
 it never reports disabled transfer as successful. Pairing becomes effective on
 the next iteration. Source logs are bounded to the most recent 50 numeric
