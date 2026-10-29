@@ -8,7 +8,7 @@ Replace the undeclared Python-2 future basestring shim with its Python-3 types.
 
 --- a/dronekit/__init__.py
 +++ b/dronekit/__init__.py
-@@ -47,7 +47,6 @@
+@@ -47,8 +47,7 @@
  import struct
  import time
  
@@ -17,6 +17,7 @@ Replace the undeclared Python-2 future basestring shim with its Python-3 types.
 +basestring = (str, bytes)  # Python 3 equivalent; no undeclared future runtime.
  
  from pymavlink import mavutil, mavwp
+ from pymavlink.dialects.v10 import ardupilotmega
 @@ -1329,7 +1328,7 @@
          self._params_loaded = False
          self._params_start = False
