@@ -3,8 +3,8 @@ SUMMARY = "SoloLink software for RC, telemetry and video"
 LICENSE = "GPLv3"
 LIC_FILES_CHKSUM = "file://LICENSE-APACHE;md5=3b83ef96387f14655fc854ddc3c6bd57"
 
-SRCREV = "cd3ff3c7e311a5498a746b0187c38e21aa660438"
-SRC_URI = "git://github.com/Decryptortuning/sololink.git;protocol=https;branch=codex/scarthgap-maintenance-a"
+SRCREV = "1cd50aa3707d37d7ce8c34e5f85fdfbd08c9770a"
+SRC_URI = "git://github.com/Decryptortuning/sololink.git;protocol=https;branch=codex/mavlink-modernization"
 
 PV = "0.0.0"
 PKGV = "${PV}+git${GITPKGV}"
@@ -16,7 +16,7 @@ inherit pkgconfig gitpkgv
 
 PACKAGE_ARCH = "${MACHINE_ARCH}"
 
-DEPENDS += "libnl"
+DEPENDS += "libnl pymavlink"
 DEPENDS += "gstreamer1.0"
 
 RDEPENDS:${PN} += "dronekit"

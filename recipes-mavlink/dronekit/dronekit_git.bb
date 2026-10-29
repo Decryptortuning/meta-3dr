@@ -20,3 +20,4 @@ RDEPENDS:${PN} += "${PYTHON_PN}-pyserial \
 
 FILESEXTRAPATHS:prepend := "${THISDIR}/files:"
 SRC_URI += "file://0001-use-stdlib-monotonic.patch"
+SRC_URI += "file://0002-select-solo-dialect.patch"

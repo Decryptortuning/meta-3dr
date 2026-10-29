@@ -1,0 +1,167 @@
+Subject: [PATCH] retain OpenSolo dialect, heartbeat state and lossless text on modern runtime
+
+Upstream-Status: Inappropriate [OpenSolo product dialect and retained wire contract]
+
+Keep current upstream runtime/generator while choosing the explicit Solo dialect.
+Preserve raw char bytes and assignment semantics, reject non-vehicle heartbeat
+cache replacement, support custom dialects without later enum entries, and make
+C generator version metadata reproducible. No XML message/enum values change.
+
+--- a/mavutil.py
++++ b/mavutil.py
+@@ -20,14 +20,7 @@
+ # We want to re-export x25crc here
+ from pymavlink.generator.mavcrc import x25crc as x25crc
+ 
+-# adding these extra imports allows pymavlink to be used directly with pyinstaller
+-# without having complex spec files. To allow for installs that don't have the "all" dialect
+-# at all we avoid throwing an exception if it isn't installed
+-try:
+-    from pymavlink.dialects.v10 import all
+-except Exception:
+-    pass
+-
++# OpenSolo selects its named wire contract; other installed dialects remain explicit.
+ # maximum packet length for a single receive call - use the UDP limit
+ UDP_MAX_PACKET_LEN = 65535
+ 
+@@ -47,7 +40,7 @@
+ 
+ # Use a globally-set MAVLink dialect if one has been specified as an environment variable.
+ if not 'MAVLINK_DIALECT' in os.environ:
+-    os.environ['MAVLINK_DIALECT'] = 'all'
++    os.environ['MAVLINK_DIALECT'] = 'solo'
+ 
+ def mavlink10() -> bool:
+     '''return True if using MAVLink 1.0 or later
+@@ -358,7 +351,7 @@
+             return False
+         if msg.type in (mavlink.MAV_TYPE_GCS,
+                         mavlink.MAV_TYPE_GIMBAL,
+-                        mavlink.MAV_TYPE_ADSB,
++                        getattr(mavlink, "MAV_TYPE_ADSB", 27),
+                         mavlink.MAV_TYPE_ONBOARD_CONTROLLER):
+             return False
+         if msg.autopilot in frozenset([
+@@ -397,7 +390,8 @@
+ 
+         m_type = msg.get_type()
+ 
+-        add_message(self.sysid_state[src_system].messages, m_type, msg)
++        if m_type != 'HEARTBEAT' or self.probably_vehicle_heartbeat(msg):
++            add_message(self.sysid_state[src_system].messages, m_type, msg)
+ 
+         if src_tuple == radio_tuple:
+             # as a special case radio msgs are added for all sysids
+@@ -2368,30 +2362,26 @@
+     6 : 'HOLD',
+ }
+ 
+-AP_MAV_TYPE_MODE_MAP_DEFAULT = {
+-    # copter
+-    mavlink.MAV_TYPE_HELICOPTER:  mode_mapping_acm,
+-    mavlink.MAV_TYPE_TRICOPTER:   mode_mapping_acm,
+-    mavlink.MAV_TYPE_QUADROTOR:   mode_mapping_acm,
+-    mavlink.MAV_TYPE_HEXAROTOR:   mode_mapping_acm,
+-    mavlink.MAV_TYPE_OCTOROTOR:   mode_mapping_acm,
+-    mavlink.MAV_TYPE_DECAROTOR:   mode_mapping_acm,
+-    mavlink.MAV_TYPE_DODECAROTOR: mode_mapping_acm,
+-    mavlink.MAV_TYPE_COAXIAL:     mode_mapping_acm,
+-    # plane
+-    mavlink.MAV_TYPE_FIXED_WING: mode_mapping_apm,
+-    mavlink.MAV_TYPE_VTOL_TILTROTOR: mode_mapping_apm,
+-    # rover
+-    mavlink.MAV_TYPE_GROUND_ROVER: mode_mapping_rover,
+-    # boat
+-    mavlink.MAV_TYPE_SURFACE_BOAT: mode_mapping_rover, # for the time being
+-    # tracker
+-    mavlink.MAV_TYPE_ANTENNA_TRACKER: mode_mapping_tracker,
+-    # sub
+-    mavlink.MAV_TYPE_SUBMARINE: mode_mapping_sub,
+-    # blimp
+-    mavlink.MAV_TYPE_AIRSHIP: mode_mapping_blimp,
+-}
++AP_MAV_TYPE_MODE_MAP_DEFAULT = {}
++for _name, _mapping in (
++        ("MAV_TYPE_HELICOPTER", mode_mapping_acm),
++        ("MAV_TYPE_TRICOPTER", mode_mapping_acm),
++        ("MAV_TYPE_QUADROTOR", mode_mapping_acm),
++        ("MAV_TYPE_HEXAROTOR", mode_mapping_acm),
++        ("MAV_TYPE_OCTOROTOR", mode_mapping_acm),
++        ("MAV_TYPE_DECAROTOR", mode_mapping_acm),
++        ("MAV_TYPE_DODECAROTOR", mode_mapping_acm),
++        ("MAV_TYPE_COAXIAL", mode_mapping_acm),
++        ("MAV_TYPE_FIXED_WING", mode_mapping_apm),
++        ("MAV_TYPE_VTOL_TILTROTOR", mode_mapping_apm),
++        ("MAV_TYPE_GROUND_ROVER", mode_mapping_rover),
++        ("MAV_TYPE_SURFACE_BOAT", mode_mapping_rover),
++        ("MAV_TYPE_ANTENNA_TRACKER", mode_mapping_tracker),
++        ("MAV_TYPE_SUBMARINE", mode_mapping_sub),
++        ("MAV_TYPE_AIRSHIP", mode_mapping_blimp),
++):
++    if hasattr(mavlink, _name):
++        AP_MAV_TYPE_MODE_MAP_DEFAULT[getattr(mavlink, _name)] = _mapping
+ 
+ # cope with enumeration renaming:
+ for (name, some_map) in ([
+--- a/generator/mavgen_python.py
++++ b/generator/mavgen_python.py
+@@ -343,6 +343,25 @@
+         if key not in self._instances:
+             raise IndexError()
+         return self._instances[key]
++
++
++class MAVLink_char_array_field:
++    """Text API with exact raw-wire backing, including embedded NUL tails."""
++    def __init__(self, name):
++        self.name = name
++        self.raw = "_" + name + "_raw"
++
++    def __get__(self, instance, owner):
++        if instance is None:
++            return owner.msgname if self.name == "name" else self
++        return getattr(instance, self.raw).split(b"\\x00", 1)[0].decode("utf-8", "surrogateescape")
++
++    def __set__(self, instance, value):
++        if isinstance(value, str):
++            value = value.encode("utf-8", "surrogateescape")
++        elif not isinstance(value, (bytes, bytearray)):
++            raise TypeError("MAVLink char field requires text or bytes")
++        setattr(instance, self.raw, bytes(value))
+ 
+ 
+ class mavlink_msg_deprecated_name_property(object):
+@@ -516,8 +535,7 @@
+         init_fields = []
+         for f in m.fields:
+             if f.type == "char":
+-                init_fields.append("self._%s_raw = %s" % (f.name, f.name))
+-                init_fields.append('self.%s = %s.split(b"\\x00", 1)[0].decode("ascii", errors="replace")' % (f.name, f.name))
++                init_fields.append("self.%s = %s" % (f.name, f.name))
+             else:
+                 init_fields.append("self.%s = %s" % (f.name, f.name))
+ 
+@@ -572,9 +590,11 @@
+ # Define name on the class for backwards compatibility (it is now msgname).
+ # Done with setattr to hide the class variable from mypy.
+ setattr(${classname}, "name", mavlink_msg_deprecated_name_property())
++${char_descriptors}
+ ''',
+                 {
+                     "classname": classname,
++                    "char_descriptors": "\n".join('setattr(%s, "%s", MAVLink_char_array_field("%s"))' % (classname, f.name, f.name) for f in m.fields if f.type == "char"),
+                     "docstring": wrapper.fill(m.description.strip()),
+                     "msg_name_upper": m.name.upper(),
+                     "field_names": fieldname_str,
+--- a/generator/mavparse.py
++++ b/generator/mavparse.py
+@@ -206,7 +206,7 @@
+         self.enum = []
+         # we use only the day for the parse_time, as otherwise
+         # it causes a lot of unnecessary cache misses with ccache
+-        self.parse_time = time.strftime("%a %b %d %Y")
++        self.parse_time = time.strftime("%a %b %d %Y", time.gmtime(int(os.environ.get("SOURCE_DATE_EPOCH", "0"))))
+         self.version = 2
+         self.include = []
+         self.wire_protocol_version = wire_protocol_version
