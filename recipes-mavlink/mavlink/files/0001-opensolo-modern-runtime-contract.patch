@@ -165,3 +165,25 @@ C generator version metadata reproducible. No XML message/enum values change.
          self.version = 2
          self.include = []
          self.wire_protocol_version = wire_protocol_version
+--- a/mavwp.py
++++ b/mavwp.py
+@@ -32,11 +32,15 @@
+         self.target_system = target_system
+         self.target_component = target_component
+         self.last_change = 0
++        # A custom dialect may predate optional fence/return-path commands.
+         self.colour_for_polygon = {
+-            mavutil.mavlink.MAV_CMD_NAV_FENCE_POLYGON_VERTEX_EXCLUSION : (255,0,0),
+-            mavutil.mavlink.MAV_CMD_NAV_FENCE_POLYGON_VERTEX_INCLUSION : (0,255,0),
+-            mavutil.mavlink.MAV_CMD_DO_LAND_START: (255, 127, 0),
+-            mavutil.mavlink.MAV_CMD_DO_RETURN_PATH_START: (127, 255, 0),
++            getattr(mavutil.mavlink, name): colour
++            for name, colour in (
++                ('MAV_CMD_NAV_FENCE_POLYGON_VERTEX_EXCLUSION', (255, 0, 0)),
++                ('MAV_CMD_NAV_FENCE_POLYGON_VERTEX_INCLUSION', (0, 255, 0)),
++                ('MAV_CMD_DO_LAND_START', (255, 127, 0)),
++                ('MAV_CMD_DO_RETURN_PATH_START', (127, 255, 0)),
++            ) if hasattr(mavutil.mavlink, name)
+         }
+ 
+     def count(self):
