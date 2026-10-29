@@ -18,17 +18,6 @@ INITSCRIPT_PARAMS:opensolo-log-receiver = "start 18 2 3 4 5 ."
 RDEPENDS:${PN} = "openssh-sshd"
 RDEPENDS:opensolo-log-receiver = "opensolo-access rsync-rrsync"
 
-# Keep root key authentication usable without a shipped password or the Linux
-# locked-account prefix. This package owns access policy in both build profiles.
-pkg_postinst:${PN}() {
-    if [ -n "$D" ]; then
-        sed -i 's|^root:[^:]*:|root:*:|' "$D/etc/shadow"
-    else
-        usermod -p '*' root
-    fi
-}
-RDEPENDS:${PN}:append = " shadow"
-
 do_install() {
     install -d ${D}${sysconfdir}/ssh/sshd_config.d ${D}${sysconfdir}/ssh/sshd_config.tail
     install -d ${D}${sysconfdir}/opensolo/log-receiver ${D}${sysconfdir}/init.d

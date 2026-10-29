@@ -8,9 +8,14 @@ public credentials offline. Never pair a generic image before cloning it.
 
 Package ownership:
 
-* `opensolo-access`: global key-only SSH policy; root's non-authenticating `*`
-  password marker (not Linux's `!` account-lock prefix). Operator public-key
-  login stays available once provisioned. Console password login is disabled.
+* `opensolo-access`: global key-only SSH policy.
+* Shared product image policy (`opensolo-image.inc`): standard Yocto `extrausers`
+  sets root's non-authenticating `*` password marker after package postinsts
+  complete shadow conversion. This is not Linux's `!` account-lock prefix.
+  Operator public-key login stays available once provisioned; console password
+  login is disabled. Both roles and profiles use this final image policy.
+  No package hook assumes `/etc/shadow` exists before conversion, and no account
+  setup is deferred to first boot.
 * `opensolo-log-receiver`: controller-only `sololog` account, root-owned
   `/var/lib/sololog` home, forced receiver, init directory ownership.
 * `sololink`: installs the Python producer in `/usr/bin` and provision helper
