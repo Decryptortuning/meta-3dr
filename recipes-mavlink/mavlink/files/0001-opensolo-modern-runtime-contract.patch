@@ -154,6 +154,18 @@ C generator version metadata reproducible. No XML message/enum values change.
                      "docstring": wrapper.fill(m.description.strip()),
                      "msg_name_upper": m.name.upper(),
                      "field_names": fieldname_str,
+@@ -1069,10 +1089,7 @@
+                 else:
+                     tlist.append(list(t[tip : (tip + L)]))
+ 
+-        # terminate any strings
+-        for i, elem in enumerate(tlist):
+-            if isinstance(elem, bytes):
+-                tlist[i] = elem.rstrip(b"\\x00")
++        # Keep fixed-width raw char bytes; field descriptors expose NUL-terminated text.
+ 
+         # construct the message object
+         try:
 --- a/generator/mavparse.py
 +++ b/generator/mavparse.py
 @@ -206,7 +206,7 @@
