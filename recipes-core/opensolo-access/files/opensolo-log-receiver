@@ -1,0 +1,25 @@
+#!/bin/sh
+# Parent directories remain root-owned. The account can only alter its log tree.
+set -eu
+case "${1:-}" in
+    start|restart)
+        for directory in /log /log/solo /log/solo/dataflash; do
+            if [ -L "$directory" ]; then
+                echo "refusing symlink receiver directory: $directory" >&2
+                exit 1
+            fi
+        done
+        # Do not accidentally create an ephemeral log tree before LOG mounts.
+        awk '$2 == "/log" { found=1 } END { exit !found }' /proc/mounts || {
+            echo 'LOG filesystem is not mounted; receiver unavailable' >&2
+            exit 1
+        }
+        mkdir -p /log/solo/dataflash
+        chown root:root /log/solo
+        chmod 0755 /log/solo
+        chown sololog:sololog /log/solo/dataflash
+        chmod 0755 /log/solo/dataflash
+        ;;
+    stop) ;;
+    *) echo "usage: $0 start|stop|restart" >&2; exit 2 ;;
+esac
