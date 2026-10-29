@@ -25,7 +25,7 @@ RDEPENDS:${PN} += "imx-vpu imx-vpuwrap gstreamer1.0 imx-gst1.0-plugin"
 RDEPENDS:${PN} += "python3-core python3-json python3-io python3-pyserial python3-datetime python3-fcntl python3-threading python3-syslog"
 
 # sololink ships a customized /etc/init.d/networking.
-RDEPENDS:${PN}-config = "init-ifupdown busybox-syslog"
+RDEPENDS:${PN}-config = "init-ifupdown busybox-syslog bash"
 
 # These need to match the environment variables in Sololink/config/sololink
 # All should come from the machine configuration meta-3dr/conf/machine/*
