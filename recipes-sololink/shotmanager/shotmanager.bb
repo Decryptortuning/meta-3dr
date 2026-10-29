@@ -1,7 +1,7 @@
 SUMMARY = "shotmanager"
 HOMEPAGE = "https://github.com/Decryptortuning/shotmanager"
 
-LICENSE = "Apache-2.0"
+LICENSE = "GPLv3"
 LIC_FILES_CHKSUM = "file://LICENSE-APACHE;md5=3b83ef96387f14655fc854ddc3c6bd57"
 
 SRCREV = "${AUTOREV}"

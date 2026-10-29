@@ -1,6 +1,6 @@
 SUMMARY = "SoloLink software for RC, telemetry and video"
 
-LICENSE = "Apache-2.0 & BSD-3-Clause & GPL-3.0-or-later"
+LICENSE = "GPLv3"
 LIC_FILES_CHKSUM = "file://LICENSE-APACHE;md5=3b83ef96387f14655fc854ddc3c6bd57"
 
 SRCREV = "${AUTOREV}"
@@ -31,11 +31,10 @@ RDEPENDS:${PN}-config = "init-ifupdown busybox-syslog"
 # All should come from the machine configuration meta-3dr/conf/machine/*
 soloconfdir = "${SOLOLINK_CONFIG_DIR}"
 
-# Config/init and drone LED helpers have separate ownership and licenses.
+# Config/init and drone LED helpers have separate package ownership.
 PACKAGES =+ "${PN}-config ${PN}-led"
 FILES:${PN}-config = "${sysconfdir}"
 FILES:${PN}-led = "${bindir}/led_control.py ${bindir}/SoloLED.py"
-LICENSE:${PN}-led = "GPL-3.0-or-later"
 FILES:${PN} = "${bindir}/* ${sbindir}/opensolo-log-provision"
 RDEPENDS:${PN} += "${PN}-config ${PN}-led"
 RDEPENDS:${PN}-led = "python3-core dronekit"
@@ -271,9 +270,6 @@ do_install:append:imx_drone() {
     ln -sf ../init.d/updateGimbal.sh ${D}${sysconfdir}/rcS.d/S62updateGimbal.sh
     rm -f ${D}${sysconfdir}/rc0.d/S89shutdownArtoo
 }
-LIC_FILES_CHKSUM += "file://px_uploader/px_uploader.py;beginline=1;endline=31;md5=69c227a31149bb835035b0577d6c66b8"
-LIC_FILES_CHKSUM += "file://flightcode/python/led_control.py;beginline=1;endline=17;md5=14fe08d36a40db90a37e069553056ffc"
-LIC_FILES_CHKSUM += "file://flightcode/python/SoloLED.py;beginline=1;endline=16;md5=1ef0248f03467ea1b9163d08366ccb73"
 
 RDEPENDS:${PN} += "python3-core python3-io python3-shell python3-json python3-logging python3-netclient openssh-keygen openssh-ssh rsync"
 
