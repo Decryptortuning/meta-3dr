@@ -12,7 +12,10 @@ case "${1:-}" in
     case "$level" in S|3|5) ;; *) exit 0 ;; esac
     [ -x "$DAEMON" ] || exit 1
     if [ -s "$PIDFILE" ] && kill -0 "$(cat "$PIDFILE")" 2>/dev/null; then exit 0; fi
-    install -d -m 0750 -o chronyd -g chronyd /run/chrony
+    # Use applets shipped by the minimal image; coreutils install is absent.
+    mkdir -p /run/chrony
+    chmod 0750 /run/chrony
+    chown chronyd:chronyd /run/chrony
     touch /run/opensolo-network-time.active
     if [ "$level" = S ] && mkdir /run/opensolo-time-bootstrap 2>/dev/null; then
         # A missing network/server never blocks boot indefinitely. The saved
