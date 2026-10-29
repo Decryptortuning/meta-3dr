@@ -1,253 +1,68 @@
-inherit image_types
-
-IMAGE_BOOTLOADER ?= "u-boot"
-
-# Handle u-boot suffixes
-UBOOT_SUFFIX ?= "bin"
-UBOOT_PADDING ?= "0"
-UBOOT_SUFFIX_SDCARD ?= "${UBOOT_SUFFIX}"
-
-#
-# Handles i.MX mxs bootstream generation
-#
-
-# IMX Bootlets Linux bootstream
-IMAGE_DEPENDS_linux.sb = "elftosb-native imx-bootlets virtual/kernel"
-IMAGE_LINK_NAME_linux.sb = ""
-IMAGE_CMD:linux.sb () {
-	kernel_bin="`readlink ${KERNEL_IMAGETYPE}-${MACHINE}.bin`"
-	kernel_dtb="`readlink ${KERNEL_IMAGETYPE}-${MACHINE}.dtb || true`"
-	linux_bd_file=imx-bootlets-linux.bd-${MACHINE}
-	if [ `basename $kernel_bin .bin` = `basename $kernel_dtb .dtb` ]; then
-		# When using device tree we build a zImage with the dtb
-		# appended on the end of the image
-		linux_bd_file=imx-bootlets-linux.bd-dtb-${MACHINE}
-		cat $kernel_bin $kernel_dtb \
-		    > $kernel_bin-dtb
-		rm -f ${KERNEL_IMAGETYPE}-${MACHINE}.bin-dtb
-		ln -s $kernel_bin-dtb ${KERNEL_IMAGETYPE}-${MACHINE}.bin-dtb
-	fi
-
-	# Ensure the file is generated
-	rm -f ${IMAGE_NAME}.linux.sb
-	elftosb -z -c $linux_bd_file -o ${IMAGE_NAME}.linux.sb
-
-	# Remove the appended file as it is only used here
-	rm -f $kernel_bin-dtb
-}
-
-# IMX Bootlets barebox bootstream
-IMAGE_DEPENDS_barebox.mxsboot-sdcard = "elftosb-native u-boot-mxsboot-native imx-bootlets barebox"
-IMAGE_CMD:barebox.mxsboot-sdcard () {
-	barebox_bd_file=imx-bootlets-barebox_ivt.bd-${MACHINE}
-
-	# Ensure the files are generated
-	rm -f ${IMAGE_NAME}.barebox.sb ${IMAGE_NAME}.barebox.mxsboot-sdcard
-	elftosb -f mx28 -z -c $barebox_bd_file -o ${IMAGE_NAME}.barebox.sb
-	mxsboot sd ${IMAGE_NAME}.barebox.sb ${IMAGE_NAME}.barebox.mxsboot-sdcard
-}
-
-# U-Boot mxsboot generation to SD-Card
-UBOOT_SUFFIX_SDCARD_mxs ?= "mxsboot-sdcard"
-IMAGE_DEPENDS_uboot.mxsboot-sdcard = "u-boot-mxsboot-native u-boot"
-IMAGE_CMD:uboot.mxsboot-sdcard = "mxsboot sd ${DEPLOY_DIR_IMAGE}/u-boot-${MACHINE}.${UBOOT_SUFFIX} \
-                                             ${DEPLOY_DIR_IMAGE}/${IMAGE_NAME}.rootfs.uboot.mxsboot-sdcard"
-
-# Boot partition volume id
-GOLDEN_VOLUME_ID ?= "GOLDEN"
-
-# Boot partition size [in KiB]
+# OpenSolo's existing MBR/GOLDEN/update ABI, deliberately limited to its two boards.
+inherit image_types python3native
+BOOT_SCRIPTS ?= ""
+IMAGE_BOOTLOADER = "u-boot"
+GOLDEN_VOLUME_ID = "GOLDEN"
 BOOT_SPACE = "90000"
-
-# Barebox environment size [in KiB]
-BAREBOX_ENV_SPACE ?= "512"
-
-# Set alignment to 4MB [in KiB]
 IMAGE_ROOTFS_ALIGNMENT = "4096"
-
-do_image_sdcard[depends] += "parted-native:do_populate_sysroot \
-                             dosfstools-native:do_populate_sysroot \
-                             mtools-native:do_populate_sysroot \
-                             virtual/kernel:do_deploy \
-                             ${@'%s:do_deploy' % d.getVar('IMAGE_BOOTLOADER') if d.getVar('IMAGE_BOOTLOADER') else ''}"
-do_image_sdcard[depends] += "${PN}:do_image_squashfs"
-
 SDCARD = "${IMGDEPLOYDIR}/${IMAGE_NAME}.sdcard"
+OPENSOLO_BUILD_ID ?= "${REPRODUCIBLE_TIMESTAMP_ROOTFS}"
+OPENSOLO_VOLUME_SERIAL = "${@__import__('hashlib').sha256((d.getVar('OPENSOLO_BUILD_ID') + ':' + d.getVar('MACHINE')).encode()).hexdigest()[:8]}"
 
-# The 3DR sdcard generator always copies the squashfs rootfs onto the boot
-# partition; keep a non-empty default to satisfy IMAGE_CMD:sdcard checks.
-SDCARD_ROOTFS ?= "${IMAGE_NAME}.squashfs"
-
-# meta-freescale/meta-imx (Scarthgap) uses extended machine override tokens
-# like "mx6-generic-bsp" instead of the older "mx6".
-SDCARD_GENERATION_COMMAND:mx6-generic-bsp = "generate_imx_sdcard"
-SDCARD_GENERATION_COMMAND:mx6dl-generic-bsp = "generate_imx_sdcard"
-
-#
-# Create an image that can by written onto a SD card using dd for use
-# with i.MX SoC family
-#
-# External variables needed:
-#   ${SDCARD_ROOTFS}    - the rootfs image to incorporate
-#   ${IMAGE_BOOTLOADER} - bootloader to use {u-boot, barebox}
-#
-# The disk layout used is:
-#
-#    0                      -> IMAGE_ROOTFS_ALIGNMENT         - reserved to bootloader (not partitioned)
-#    IMAGE_ROOTFS_ALIGNMENT -> BOOT_SPACE                     - kernel, dtb, squashfs
-#            4MiB              96MiB      
-# <-----------------------> <------------> 
-#  ------------------------ ------------ ------------------------ -------------------------------
-# | IMAGE_ROOTFS_ALIGNMENT | GOLDEN_SPACE |                    EMPTY                            |
-#  ------------------------ ------------ ------------------------ -------------------------------
-# ^                        ^              ^ 
-# |                        |              |
-# 0                      4096         4MiB + 96MiB
-generate_imx_sdcard () {
-	# Create partition table
-	parted -s ${SDCARD} mklabel msdos
-	parted -s ${SDCARD} unit KiB mkpart primary fat32 ${IMAGE_ROOTFS_ALIGNMENT} $(expr ${IMAGE_ROOTFS_ALIGNMENT} \+ ${GOLDEN_SPACE_ALIGNED})
-	parted ${SDCARD} print
-
-	# Burn bootloader
-	case "${IMAGE_BOOTLOADER}" in
-		imx-bootlets)
-		bberror "The imx-bootlets is not supported for i.MX based machines"
-		exit 1
-		;;
-		u-boot)
-		dd if=${DEPLOY_DIR_IMAGE}/u-boot-${MACHINE}.${UBOOT_SUFFIX_SDCARD} of=${SDCARD} conv=notrunc seek=2 skip=${UBOOT_PADDING} bs=512
-		;;
-		barebox)
-		dd if=${DEPLOY_DIR_IMAGE}/barebox-${MACHINE}.bin of=${SDCARD} conv=notrunc seek=1 skip=1 bs=512
-		dd if=${DEPLOY_DIR_IMAGE}/bareboxenv-${MACHINE}.bin of=${SDCARD} conv=notrunc seek=1 bs=512k
-		;;
-		"")
-		;;
-		*)
-		bberror "Unkown IMAGE_BOOTLOADER value"
-		exit 1
-		;;
-	esac
-
-	# Create golden partition image
-	GOLDEN_BLOCKS=$(LC_ALL=C parted -s ${SDCARD} unit b print \
-	                  | awk '/ 1 / { print substr($4, 1, length($4 -1)) / 1024 }')
-	rm -f ${WORKDIR}/boot.img
-	mkfs.vfat -n "${GOLDEN_VOLUME_ID}" -S 512 -C ${WORKDIR}/boot.img $GOLDEN_BLOCKS
-	KERNEL_BIN="${DEPLOY_DIR_IMAGE}/${KERNEL_IMAGETYPE}-initramfs-${MACHINE}.bin"
-	if [ ! -e "${KERNEL_BIN}" ]; then
-		KERNEL_BIN="${DEPLOY_DIR_IMAGE}/${KERNEL_IMAGETYPE}-${MACHINE}.bin"
-	fi
-	mcopy -i ${WORKDIR}/boot.img -s ${KERNEL_BIN} ::/${KERNEL_IMAGETYPE}
-	
-	# Copy boot scripts
-	for item in ${BOOT_SCRIPTS}; do
-		src=`echo $item | awk -F':' '{ print $1 }'`
-		dst=`echo $item | awk -F':' '{ print $2 }'`
-
-		mcopy -i ${WORKDIR}/boot.img -s $src ::/$dst
-	done
-
-	# Copy device tree file
-	if test -n "${KERNEL_DEVICETREE}"; then
-		for DTS_FILE in ${KERNEL_DEVICETREE}; do
-			DTS_BASE_NAME=`basename ${DTS_FILE} | awk -F "." '{print $1}'`
-			if [ -e "${DEPLOY_DIR_IMAGE}/${DTS_BASE_NAME}.dtb" ]; then
-				mcopy -i ${WORKDIR}/boot.img -s ${DEPLOY_DIR_IMAGE}/${DTS_BASE_NAME}.dtb ::/${DTS_BASE_NAME}.dtb
-			fi
-		done
-	fi
-
-    # Use only this task's squashfs; stale deployed images must never be selected.
-    ROOTFS_IMAGE="${IMGDEPLOYDIR}/${IMAGE_NAME}.squashfs"
-    if [ ! -s "${ROOTFS_IMAGE}" ]; then
-        bberror "Missing current squashfs: ${ROOTFS_IMAGE}"
-        exit 1
-    fi
-    mcopy -i ${WORKDIR}/boot.img -s ${ROOTFS_IMAGE} ::/${IMAGE_BASENAME}-${MACHINE}.squashfs
-
-    #Copy the u-boot.imx
-    if [ -e ${DEPLOY_DIR_IMAGE}/u-boot.imx ]; then
-        mcopy -i ${WORKDIR}/boot.img -s ${DEPLOY_DIR_IMAGE}/u-boot.imx ::/u-boot.imx
-    else
-        bberror "Error, no u-boot.imx file found"
-        exit 1
-    fi
-
-	# Burn Partition
-	dd if=${WORKDIR}/boot.img of=${SDCARD} conv=notrunc seek=1 bs=$(expr ${IMAGE_ROOTFS_ALIGNMENT} \* 1024) && sync && sync
-
-    # Create the update tarball
-    cp ${DEPLOY_DIR_IMAGE}/${DTS_BASE_NAME}.dtb ${WORKDIR}/${DTS_BASE_NAME}.dtb
-    cp ${KERNEL_BIN} ${WORKDIR}/${KERNEL_IMAGETYPE}
-    cp ${ROOTFS_IMAGE} ${WORKDIR}/${IMAGE_BASENAME}-${MACHINE}.squashfs
-    cp ${DEPLOY_DIR_IMAGE}/u-boot-${MACHINE}.${UBOOT_SUFFIX_SDCARD} ${WORKDIR}/u-boot.imx
-
-    cd ${WORKDIR}
-    tar -pczf ${IMGDEPLOYDIR}/${IMAGE_BASENAME}.tar.gz \
-              ${DTS_BASE_NAME}.dtb \
-              ${KERNEL_IMAGETYPE} \
-              ${IMAGE_BASENAME}-${MACHINE}.squashfs \
-              u-boot.imx
-
-    #tarball md5sum
-    cd ${IMGDEPLOYDIR}
-    md5sum ${IMAGE_BASENAME}.tar.gz > ${IMAGE_BASENAME}.tar.gz.md5
-    cd ${WORKDIR}
-}
+do_image_sdcard[depends] += "parted-native:do_populate_sysroot dosfstools-native:do_populate_sysroot mtools-native:do_populate_sysroot python3-native:do_populate_sysroot virtual/kernel:do_deploy u-boot-imx:do_deploy ${PN}:do_image_squashfs"
 
 IMAGE_CMD:sdcard () {
-	if [ -z "${SDCARD_ROOTFS}" ]; then
-		bberror "SDCARD_ROOTFS is undefined. To use sdcard image from Freescale's BSP it needs to be defined."
-		exit 1
-	fi
-
-	# Ensure the boot partition is large enough for kernel+dtb+rootfs (+overhead).
-	BOOT_SPACE_KIB="${BOOT_SPACE}"
-	OVERHEAD_KIB=16384
-    ROOTFS_IMAGE="${IMGDEPLOYDIR}/${IMAGE_NAME}.squashfs"
-    if [ ! -s "${ROOTFS_IMAGE}" ]; then
-        bberror "Missing current squashfs: ${ROOTFS_IMAGE}"
-        exit 1
-    fi
-	ROOTFS_BYTES=$(stat -Lc%s "${ROOTFS_IMAGE}")
-	ROOTFS_KIB=$(expr ${ROOTFS_BYTES} + 1023)
-	ROOTFS_KIB=$(expr ${ROOTFS_KIB} / 1024)
-	KERNEL_BIN="${DEPLOY_DIR_IMAGE}/${KERNEL_IMAGETYPE}-initramfs-${MACHINE}.bin"
-	if [ ! -e "${KERNEL_BIN}" ]; then
-		KERNEL_BIN="${DEPLOY_DIR_IMAGE}/${KERNEL_IMAGETYPE}-${MACHINE}.bin"
-	fi
-	KERNEL_BYTES=$(stat -Lc%s "${KERNEL_BIN}")
-	KERNEL_KIB=$(expr ${KERNEL_BYTES} + 1023)
-	KERNEL_KIB=$(expr ${KERNEL_KIB} / 1024)
-	UBOOT_BYTES=$(stat -Lc%s "${DEPLOY_DIR_IMAGE}/u-boot-${MACHINE}.${UBOOT_SUFFIX_SDCARD}")
-	UBOOT_KIB=$(expr ${UBOOT_BYTES} + 1023)
-	UBOOT_KIB=$(expr ${UBOOT_KIB} / 1024)
-	DTB_KIB=0
-	if test -n "${KERNEL_DEVICETREE}"; then
-		for DTS_FILE in ${KERNEL_DEVICETREE}; do
-			DTS_BASE_NAME=`basename ${DTS_FILE} | awk -F "." '{print $1}'`
-			if [ -e "${DEPLOY_DIR_IMAGE}/${DTS_BASE_NAME}.dtb" ]; then
-				DTB_BYTES=$(stat -Lc%s "${DEPLOY_DIR_IMAGE}/${DTS_BASE_NAME}.dtb")
-				THIS_DTB_KIB=$(expr ${DTB_BYTES} + 1023)
-				THIS_DTB_KIB=$(expr ${THIS_DTB_KIB} / 1024)
-				DTB_KIB=$(expr ${DTB_KIB} + ${THIS_DTB_KIB})
-			fi
-		done
-	fi
-	NEEDED_BOOT_KIB=$(expr ${ROOTFS_KIB} + ${KERNEL_KIB} + ${UBOOT_KIB} + ${DTB_KIB} + ${OVERHEAD_KIB})
-	if [ "${NEEDED_BOOT_KIB}" -gt "${BOOT_SPACE_KIB}" ]; then
-		BOOT_SPACE_KIB="${NEEDED_BOOT_KIB}"
-	fi
-
-	# Align boot partition and calculate total SD card image size
-	GOLDEN_SPACE_ALIGNED=$(expr ${BOOT_SPACE_KIB} + ${IMAGE_ROOTFS_ALIGNMENT} - 1)
-	GOLDEN_SPACE_ALIGNED=$(expr ${GOLDEN_SPACE_ALIGNED} - ${GOLDEN_SPACE_ALIGNED} % ${IMAGE_ROOTFS_ALIGNMENT})
-	SDCARD_SIZE=$(expr ${IMAGE_ROOTFS_ALIGNMENT} + ${GOLDEN_SPACE_ALIGNED} + 1)
-
-	# Initialize a sparse file
-	dd if=/dev/zero of=${SDCARD} bs=1 count=0 seek=$(expr 1024 \* ${SDCARD_SIZE})
-
-	${SDCARD_GENERATION_COMMAND}
+    case '${MACHINE}' in imx_controller|imx_drone) ;; *) bbfatal 'Unsupported OpenSolo machine' ;; esac
+    export SOURCE_DATE_EPOCH='${REPRODUCIBLE_TIMESTAMP_ROOTFS}' TZ=UTC LC_ALL=C
+    test "$SOURCE_DATE_EPOCH" -ge 315532800 || bbfatal 'Source epoch must be representable in FAT (1980 or later)'
+    test "$SOURCE_DATE_EPOCH" -le 4354819198 || bbfatal 'Source epoch exceeds FAT date range'
+    test '${KERNEL_IMAGETYPE}' = uImage || bbfatal 'OpenSolo boot ABI requires uImage'
+    test -z '${BOOT_SCRIPTS}' || bbfatal 'OpenSolo update ABI does not include arbitrary boot scripts'
+    set -- ${KERNEL_DEVICETREE}
+    test "$#" -eq 1 || bbfatal 'OpenSolo update ABI requires exactly one DTB'
+    DTB_NAME=$(basename "$1")
+    KERNEL_BIN='${DEPLOY_DIR_IMAGE}/${KERNEL_IMAGETYPE}-initramfs-${MACHINE}.bin'
+    DTB_BIN="${DEPLOY_DIR_IMAGE}/$DTB_NAME"
+    UBOOT_BIN='${DEPLOY_DIR_IMAGE}/u-boot-${MACHINE}.imx'
+    ROOTFS_IMAGE='${IMGDEPLOYDIR}/${IMAGE_NAME}.squashfs'
+    for input in "$KERNEL_BIN" "$DTB_BIN" "$UBOOT_BIN" "$ROOTFS_IMAGE"; do
+        test -s "$input" || bbfatal "Missing required current boot payload: $input"
+    done
+    # Raw bootloader starts at 1KiB and must end before the environment at 0xc0000.
+    UBOOT_BYTES=$(stat -Lc%s "$UBOOT_BIN")
+    test "$UBOOT_BYTES" -le 785408 || bbfatal 'U-Boot overlaps the raw environment at 0xc0000'
+    PAYLOAD_BYTES=$(($(stat -Lc%s "$KERNEL_BIN") + $(stat -Lc%s "$DTB_BIN") + $(stat -Lc%s "$ROOTFS_IMAGE") + UBOOT_BYTES))
+    BOOT_KIB=$(((PAYLOAD_BYTES + 1023) / 1024 + 16384))
+    test "$BOOT_KIB" -ge '${BOOT_SPACE}' || BOOT_KIB='${BOOT_SPACE}'
+    GOLDEN_KIB=$(((BOOT_KIB + 4095) / 4096 * 4096))
+    END_KIB=$((4096 + GOLDEN_KIB))
+    # Recreate from zeros, including reserved/environment sectors. No stale bytes.
+    rm -f '${SDCARD}' '${WORKDIR}/boot.img'
+    truncate -s $(((END_KIB + 1) * 1024)) '${SDCARD}'
+    parted -s '${SDCARD}' mklabel msdos
+    parted -s '${SDCARD}' unit KiB mkpart primary fat32 4096 "$END_KIB"
+    # parted generates a random MBR signature; use the same stable serial as FAT.
+    ${PYTHON} -c 'import struct; p="${SDCARD}"; f=open(p,"r+b"); f.seek(440); f.write(struct.pack("<I",int("${OPENSOLO_VOLUME_SERIAL}",16))); f.close()'
+    dd if="$UBOOT_BIN" of='${SDCARD}' conv=notrunc seek=2 bs=512
+    mkfs.vfat --invariant -i '${OPENSOLO_VOLUME_SERIAL}' -n '${GOLDEN_VOLUME_ID}' -S 512 -C '${WORKDIR}/boot.img' "$GOLDEN_KIB"
+    # mtools 4.0.43 getTimeNow() consumes SOURCE_DATE_EPOCH for file creation,
+    # access and modification dates when -m is absent. Never preserve host mtime.
+    mcopy -i '${WORKDIR}/boot.img' "$DTB_BIN" "::/$DTB_NAME"
+    mcopy -i '${WORKDIR}/boot.img' "$ROOTFS_IMAGE" '::/${IMAGE_BASENAME}-${MACHINE}.squashfs'
+    mcopy -i '${WORKDIR}/boot.img' "$UBOOT_BIN" '::/u-boot.imx'
+    mcopy -i '${WORKDIR}/boot.img' "$KERNEL_BIN" '::/uImage'
+    dd if='${WORKDIR}/boot.img' of='${SDCARD}' conv=notrunc seek=1 bs=4194304
+    PAYLOAD_DIR='${WORKDIR}/opensolo-update'
+    rm -rf "$PAYLOAD_DIR"
+    install -d "$PAYLOAD_DIR"
+    install -m 0644 "$DTB_BIN" "$PAYLOAD_DIR/$DTB_NAME"
+    install -m 0644 "$ROOTFS_IMAGE" "$PAYLOAD_DIR/${IMAGE_BASENAME}-${MACHINE}.squashfs"
+    install -m 0644 "$UBOOT_BIN" "$PAYLOAD_DIR/u-boot.imx"
+    install -m 0644 "$KERNEL_BIN" "$PAYLOAD_DIR/uImage"
+    # Exactly four legacy members; receipts stay outside the wire archive.
+    tar --sort=name --format=gnu --owner=0 --group=0 --numeric-owner --mtime="@$SOURCE_DATE_EPOCH" -C "$PAYLOAD_DIR" -cf '${WORKDIR}/opensolo-update.tar' '${IMAGE_BASENAME}-${MACHINE}.squashfs' "$DTB_NAME" u-boot.imx uImage
+    gzip -n -c '${WORKDIR}/opensolo-update.tar' > '${IMGDEPLOYDIR}/${IMAGE_BASENAME}.tar.gz'
+    (cd '${IMGDEPLOYDIR}' && md5sum '${IMAGE_BASENAME}.tar.gz' > '${IMAGE_BASENAME}.tar.gz.md5')
+    # Machine-readable selection receipt, independent of temporary/deploy symlinks.
+    ${PYTHON} -c 'import hashlib,json,pathlib; p=pathlib.Path("${WORKDIR}/opensolo-update"); h=lambda x:hashlib.sha256(x.read_bytes()).hexdigest(); out=pathlib.Path("${IMGDEPLOYDIR}"); data=dict(format_version=1,machine="${MACHINE}",build_id="${OPENSOLO_BUILD_ID}",source_date_epoch=int("${REPRODUCIBLE_TIMESTAMP_ROOTFS}"),fat_volume_serial="${OPENSOLO_VOLUME_SERIAL}",partition_start_bytes=4194304,bootloader_offset_bytes=1024,environment_offset_bytes=786432,payloads={x.name:h(x) for x in sorted(p.iterdir())},sdcard_sha256=h(pathlib.Path("${SDCARD}")),archive_sha256=h(out/"${IMAGE_BASENAME}.tar.gz")); (out/"${IMAGE_BASENAME}.boot-manifest.json").write_text(json.dumps(data,sort_keys=True,indent=2)+"\n")'
 }
