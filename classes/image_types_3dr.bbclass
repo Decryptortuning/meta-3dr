@@ -31,14 +31,23 @@ IMAGE_CMD:sdcard () {
     # Raw bootloader starts at 1KiB and must end before the environment at 0xc0000.
     UBOOT_BYTES=$(stat -Lc%s "$UBOOT_BIN")
     test "$UBOOT_BYTES" -le 785408 || bbfatal 'U-Boot overlaps the raw environment at 0xc0000'
-    PAYLOAD_BYTES=$(($(stat -Lc%s "$KERNEL_BIN") + $(stat -Lc%s "$DTB_BIN") + $(stat -Lc%s "$ROOTFS_IMAGE") + UBOOT_BYTES))
-    BOOT_KIB=$(((PAYLOAD_BYTES + 1023) / 1024 + 16384))
+    KERNEL_BYTES=$(stat -Lc%s "$KERNEL_BIN")
+    DTB_BYTES=$(stat -Lc%s "$DTB_BIN")
+    ROOTFS_BYTES=$(stat -Lc%s "$ROOTFS_IMAGE")
+    PAYLOAD_BYTES=$(expr "$KERNEL_BYTES" + "$DTB_BYTES" + "$ROOTFS_BYTES" + "$UBOOT_BYTES")
+    BOOT_ROUNDED_BYTES=$(expr "$PAYLOAD_BYTES" + 1023)
+    PAYLOAD_KIB=$(expr "$BOOT_ROUNDED_BYTES" / 1024)
+    BOOT_KIB=$(expr "$PAYLOAD_KIB" + 16384)
     test "$BOOT_KIB" -ge '${BOOT_SPACE}' || BOOT_KIB='${BOOT_SPACE}'
-    GOLDEN_KIB=$(((BOOT_KIB + 4095) / 4096 * 4096))
-    END_KIB=$((4096 + GOLDEN_KIB))
+    GOLDEN_ROUNDED_KIB=$(expr "$BOOT_KIB" + 4095)
+    GOLDEN_UNITS=$(expr "$GOLDEN_ROUNDED_KIB" / 4096)
+    GOLDEN_KIB=$(expr "$GOLDEN_UNITS" \* 4096)
+    END_KIB=$(expr 4096 + "$GOLDEN_KIB")
     # Recreate from zeros, including reserved/environment sectors. No stale bytes.
     rm -f '${SDCARD}' '${WORKDIR}/boot.img'
-    truncate -s $(((END_KIB + 1) * 1024)) '${SDCARD}'
+    IMAGE_KIB=$(expr "$END_KIB" + 1)
+    IMAGE_BYTES=$(expr "$IMAGE_KIB" \* 1024)
+    truncate -s "$IMAGE_BYTES" '${SDCARD}'
     parted -s '${SDCARD}' mklabel msdos
     parted -s '${SDCARD}' unit KiB mkpart primary fat32 4096 "$END_KIB"
     # parted generates a random MBR signature; use the same stable serial as FAT.
