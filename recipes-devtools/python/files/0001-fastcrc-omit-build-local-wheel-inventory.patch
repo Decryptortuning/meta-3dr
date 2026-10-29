@@ -1,0 +1,18 @@
+Subject: [PATCH] omit duplicate build-local wheel inventory
+
+Upstream-Status: Inappropriate [OpenEmbedded source metadata is generated separately]
+
+Maturin 1.16 adds Cargo inventory containing absolute source-path identifiers.
+Use its supported opt-out to avoid buildpaths QA and path-dependent wheel bytes.
+The standard OpenEmbedded source metadata and pinned crate checksums remain.
+
+--- a/pyproject.toml
++++ b/pyproject.toml
+@@ -32,3 +32,7 @@
+ [tool.maturin]
+ features = ["pyo3/extension-module"]
+ exclude = [".github/**/*", "benchmarks/**/*", "tests/**/*", "docs/**/*"]
++
++# Yocto tracks locked Cargo inputs; omit build-local wheel inventory IDs.
++[tool.maturin.sbom]
++rust = false
