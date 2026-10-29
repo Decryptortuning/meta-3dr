@@ -7,7 +7,7 @@ LIC_FILES_CHKSUM = "file://COPYING.txt;md5=3c34afdc3adf82d2448f12715a255122"
 PV = "1.4.20-solo"
 
 SRCREV = "${AUTOREV}"
-SRC_URI = "https://github.com/Decryptortuning/MAVProxy.git;branch=PORT"
+SRC_URI = "git://github.com/Decryptortuning/MAVProxy.git;protocol=https;branch=PORT"
 
 S = "${WORKDIR}/git"
 
