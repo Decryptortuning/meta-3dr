@@ -3,7 +3,7 @@ SUMMARY = "SoloLink software for RC, telemetry and video"
 LICENSE = "GPLv3"
 LIC_FILES_CHKSUM = "file://LICENSE-APACHE;md5=3b83ef96387f14655fc854ddc3c6bd57"
 
-SRCREV = "6d16834cea2a558a3560968bd10b28e78f08616d"
+SRCREV = "3d9357434754452cc87f22152d23221be4f4c049"
 SRC_URI = "git://github.com/Decryptortuning/sololink.git;protocol=https;branch=codex/controller-linux-maintenance"
 
 PV = "0.0.0"
