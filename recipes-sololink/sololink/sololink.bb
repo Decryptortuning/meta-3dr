@@ -3,7 +3,7 @@ SUMMARY = "SoloLink software for RC, telemetry and video"
 LICENSE = "GPLv3"
 LIC_FILES_CHKSUM = "file://LICENSE-APACHE;md5=3b83ef96387f14655fc854ddc3c6bd57"
 
-SRCREV = "045b2138494e6544b5a24378bd6fc2dd8175817c"
+SRCREV = "b29d659839ff52d595e10d4418515dcc0b831ae1"
 SRC_URI = "git://github.com/Decryptortuning/sololink.git;protocol=https;branch=codex/controller-linux-maintenance"
 
 PV = "0.0.0"
@@ -259,7 +259,10 @@ do_install () {
 }
 
 
+RDEPENDS:${PN}:append:imx_controller = " python3-netclient"
+
 do_install:append:imx_controller() {
+    install -m 0755 ${S}/flightcode/stm32/artoo_diagnostics.py ${D}${bindir}/artoo-diagnostics
     sed -i 's/^ApEnable=.*/ApEnable=True/; s/^StationEnable=.*/StationEnable=False/' ${D}${soloconfdir}/sololink.orig
     printf '%s\n' '#!/bin/sh' '/usr/bin/checkArtooAndUpdate.py' > ${D}${sysconfdir}/init.d/updateArtoo
     chmod 0755 ${D}${sysconfdir}/init.d/updateArtoo
